@@ -68,17 +68,17 @@ function normalizeAndFrame(
   const boxA = new THREE.Box3().setFromObject(originalA);
   const boxB = new THREE.Box3().setFromObject(originalB);
 
-  // Only zero out X and Z — do not touch Y so the model's vertical origin is preserved.
+  // Center all three axes so the model's geometric center sits at world origin.
   if (!boxA.isEmpty()) {
     const centerA = boxA.getCenter(new THREE.Vector3());
-    cloneA.position.sub(new THREE.Vector3(centerA.x, 0, centerA.z));
+    cloneA.position.sub(centerA);
   }
   if (!boxB.isEmpty()) {
     const centerB = boxB.getCenter(new THREE.Vector3());
-    cloneB.position.sub(new THREE.Vector3(centerB.x, 0, centerB.z));
+    cloneB.position.sub(centerB);
   }
 
-  // Bounding spheres after centering.
+  // Bounding spheres after centering — centers should now be near origin.
   const sphereA = new THREE.Sphere();
   const sphereB = new THREE.Sphere();
   new THREE.Box3().setFromObject(cloneA).getBoundingSphere(sphereA);
@@ -88,6 +88,7 @@ function normalizeAndFrame(
   const fov = camera.fov * (Math.PI / 180);
   const dist = (radius / Math.sin(fov / 2)) * 1.2;
 
+  // Position camera along +Z, looking at the scene center (origin after centering).
   camera.position.set(0, 0, dist);
   camera.near = dist / 100;
   camera.far = dist * 10;
