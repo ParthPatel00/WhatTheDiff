@@ -59,6 +59,7 @@ async function parseWithGltfTransform(buffer: ArrayBuffer): Promise<StructuralDa
     document: doc,
     vertexCount: Math.round(vertexCount),
     triangleCount: Math.round(triangleCount),
+    meshCount: meshes.length,
     materialCount: root.listMaterials().length,
     nodeCount: root.listNodes().length,
     animationCount: root.listAnimations().length,
