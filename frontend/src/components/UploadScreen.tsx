@@ -1,13 +1,22 @@
 "use client";
 
+import { useState } from "react";
+import dynamic from "next/dynamic";
 import { useDiffStore } from "@/stores/diffStore";
+import { useDiffResults } from "@/hooks/useDiffResults";
 import { Header } from "./Header";
 import { FileUpload } from "./FileUpload";
+
+const AllAnglesView = dynamic(() => import("@/components/AllAnglesView"), { ssr: false });
+const PixelDiffView = dynamic(() => import("@/components/PixelDiffView"), { ssr: false });
 
 export function UploadScreen() {
   const modelA = useDiffStore((s) => s.modelA);
   const modelB = useDiffStore((s) => s.modelB);
   const bothLoaded = !!modelA && !!modelB;
+
+  // Kick off renders + diffs whenever models or tolerance change
+  useDiffResults();
 
   return (
     <div style={{ background: "var(--bg)", minHeight: "100vh", display: "flex", flexDirection: "column" }}>
@@ -22,7 +31,7 @@ export function UploadScreen() {
         padding: "40px 32px",
       }}>
         {bothLoaded ? (
-          <BothLoadedPlaceholder />
+          <DiffTestArea />
         ) : (
           <>
             {/* Title */}
@@ -103,41 +112,72 @@ export function UploadScreen() {
   );
 }
 
-function BothLoadedPlaceholder() {
+// ─── Temporary test area (Phase 4 will replace this with the real layout) ───
+
+type TestView = "all-angles" | "pixel-diff";
+
+function DiffTestArea() {
+  const tolerance = useDiffStore((s) => s.tolerance);
+  const setTolerance = useDiffStore((s) => s.setTolerance);
+  const diffResults = useDiffStore((s) => s.diffResults);
+  const [view, setView] = useState<TestView>("all-angles");
+
   return (
-    <div style={{
-      width: "100%",
-      maxWidth: 720,
-      padding: "32px",
-      background: "var(--bg-surface)",
-      border: "1px solid var(--border)",
-      borderRadius: 8,
-      textAlign: "center",
-      display: "flex",
-      flexDirection: "column",
-      alignItems: "center",
-      gap: 12,
-    }}>
+    <div style={{ width: "100%", maxWidth: 960, display: "flex", flexDirection: "column", gap: 12 }}>
+
+      {/* Controls strip */}
       <div style={{
-        width: 48,
-        height: 48,
-        borderRadius: "50%",
-        background: "rgba(80, 220, 100, 0.1)",
-        border: "2px solid rgba(80, 220, 100, 0.4)",
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
+        display: "flex", alignItems: "center", gap: 20, flexWrap: "wrap",
+        padding: "10px 16px", background: "var(--bg-surface)",
+        border: "1px solid var(--border)", borderRadius: 6,
       }}>
-        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" strokeWidth="2.5">
-          <polyline points="20 6 9 17 4 12" />
-        </svg>
+        {/* View toggle */}
+        <div style={{ display: "flex", gap: 6 }}>
+          {(["all-angles", "pixel-diff"] as TestView[]).map((v) => (
+            <button
+              key={v}
+              onClick={() => setView(v)}
+              style={{
+                fontFamily: "var(--font-mono)", fontSize: 11, padding: "4px 10px",
+                borderRadius: 4, cursor: "pointer", border: "1px solid var(--border)",
+                background: view === v ? "var(--bg-elevated)" : "transparent",
+                color: view === v ? "var(--text)" : "var(--text-muted)",
+              }}
+            >
+              {v}
+            </button>
+          ))}
+        </div>
+
+        {/* Tolerance slider */}
+        <label style={{ display: "flex", alignItems: "center", gap: 8,
+          fontFamily: "var(--font-mono)", fontSize: 11, color: "var(--text-muted)" }}>
+          tolerance
+          <input
+            type="range" min={0} max={100} value={tolerance}
+            onChange={(e) => setTolerance(Number(e.target.value))}
+            aria-label="Pixel diff tolerance"
+            style={{ width: 120, accentColor: "var(--accent)" }}
+          />
+          <span style={{ color: "var(--text)", minWidth: 24 }}>{tolerance}</span>
+        </label>
+
+        {/* Status */}
+        <span style={{ fontFamily: "var(--font-mono)", fontSize: 11,
+          color: diffResults.length ? "var(--green)" : "var(--text-dim)",
+          marginLeft: "auto" }}>
+          {diffResults.length ? `${diffResults.length}/6 angles computed` : "computing…"}
+        </span>
       </div>
-      <p style={{ fontFamily: "var(--font-mono)", fontSize: 14, fontWeight: 600, color: "var(--text)" }}>
-        Both models loaded
-      </p>
-      <p style={{ fontFamily: "var(--font-mono)", fontSize: 11, color: "var(--text-muted)" }}>
-        View modes and diff controls will appear here in Phase 4.
-      </p>
+
+      {/* View area */}
+      <div style={{
+        width: "100%", height: 600,
+        background: "var(--bg-canvas)", border: "1px solid var(--border)", borderRadius: 6,
+        overflow: "hidden",
+      }}>
+        {view === "all-angles" ? <AllAnglesView /> : <PixelDiffView />}
+      </div>
     </div>
   );
 }
