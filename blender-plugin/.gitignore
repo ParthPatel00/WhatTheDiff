@@ -1,0 +1,28 @@
+# macOS
+.DS_Store
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+
+# IDEs
+.idea/
+.vscode/
+
+# Blender Plugin Build Artifacts
+*.zip
+
+# Test Scripts
+run_check.py
+test_draw.py
+test_icons.py
+test_mat.py
+test_tint.py
+
+# Blender Project Files
+*.blend
+*.blend1
+*.crash.txt
+blender.crash.txt
+blender_plugin_audit.md
