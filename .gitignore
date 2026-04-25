@@ -1,2 +1,27 @@
+# Environment — never commit secrets
+.env
+.env.local
+.env.*.local
 
+# macOS
 .DS_Store
+.AppleDouble
+.LSOverride
+
+# Node
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# CLI build artifacts
+cli/node_modules/
+
+# Editor
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+Thumbs.db

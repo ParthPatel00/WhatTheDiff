@@ -3,6 +3,7 @@
 import dynamic from "next/dynamic";
 import { useDiffStore } from "@/stores/diffStore";
 import { useDiffResults } from "@/hooks/useDiffResults";
+import { useUrlLoader } from "@/hooks/useUrlLoader";
 import { Header } from "./Header";
 import { FileUpload } from "./FileUpload";
 
@@ -18,6 +19,8 @@ export function UploadScreen() {
 
   // Kick off offscreen renders + diffs whenever models or tolerance change
   useDiffResults();
+  // Load models from ?a=&b= URL params (set by the CLI after uploading to Supabase)
+  useUrlLoader();
 
   if (bothLoaded) {
     return (

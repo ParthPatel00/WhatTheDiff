@@ -388,51 +388,65 @@ Store the preference in `localStorage` so it persists across sessions.
 
 The tool ships in three integration tiers. Build them in order: each tier depends on the previous one.
 
-### Tier 1: Local git hook (1 day, zero server required)
+### Tier 1: Local git hook ✅ COMPLETE
 
-Package diffglb as an npm CLI: `npx diffglb`. A `prepare` script in `package.json` installs the hook automatically when a developer runs `npm install` in their repo.
+The CLI lives at `cli/` in the repo. It uploads both GLB versions to Supabase Storage and opens the deployed viewer with signed URLs — no local server required.
 
 **How it works:**
 
-- `.git/hooks/post-commit` shells out to `npx diffglb`
-- The hook runs `git diff --name-only HEAD~1 HEAD` to find changed `.glb` files
-- For each changed file it runs `git show HEAD~1:<path>` and `git show HEAD:<path>` to extract the two binary blobs into temp files
-- Calls `diffglb --a /tmp/prev.glb --b /tmp/curr.glb` which serves the viewer at `localhost:4242` and opens it in the browser
-- Process exits cleanly; port is released after the browser tab closes
+1. `post-commit` hook (installed by `install-hook`) calls `node cli/bin/whathediff.js --hook`
+2. CLI runs `git diff --name-status HEAD~1 HEAD`, filters `.glb` files with status `M`
+3. Extracts old/new versions via `git show HEAD~1:<path>` and `git show HEAD:<path>`
+4. Uploads both `ArrayBuffer`s to Supabase Storage under `diffs/<uuid>/`
+5. Generates 1-hour signed URLs via `createSignedUrl`
+6. Opens `https://what-the-diff.vercel.app?a=<signedUrl>&b=<signedUrl>&nameA=...&nameB=...`
+7. Frontend `useUrlLoader` hook (`frontend/src/hooks/useUrlLoader.ts`) reads the query params on mount, fetches both files via `/api/proxy` (a Next.js route that adds `Cross-Origin-Resource-Policy: cross-origin` to satisfy the `COEP: require-corp` header), and loads them into the Zustand store — bypassing drag-and-drop entirely
 
-**Handling new files (no previous version).** `git show HEAD~1:<path>` fails on the initial commit of a new GLB file because there is no previous version. The hook must detect newly added files (status "A" in `git diff --name-status`) and skip them with a message: "Skipping <filename>: new file, nothing to diff against." Without this, the hook crashes on the first commit that introduces a GLB.
+**COEP / Supabase fetch gotcha.** The frontend sets `Cross-Origin-Embedder-Policy: require-corp` (required for `SharedArrayBuffer` used by the pixel diff worker pool). This blocks direct `fetch()` of cross-origin resources that don't include `Cross-Origin-Resource-Policy` in their response headers — which Supabase signed URLs do not send. The fix is a same-origin proxy route at `frontend/src/app/api/proxy/route.ts` that fetches the Supabase URL server-side and re-serves the bytes with the correct CORP header.
 
-**Batch commit protection.** The hook fires on every commit that touches any GLB files, including batch commits that modify dozens of assets. Opening a browser tab for each file would be disruptive. Add a `--max-files` flag (default 3). When the changed file count exceeds the limit, prompt the user: "12 GLB files changed. Open diffs for all? [y/N/pick]" where "pick" lets them choose which files to diff. The `--no-prompt` flag skips the prompt and opens all (for scripted use).
+**Required environment variables** (in `.env` at repo root — never commit this file):
+```
+SUPABASE_PROJECT_ID=<project-id>
+SUPABASE_SERVICE_ROLE_KEY=<service-role-key>   # server-side only, never expose to browser
+SUPABASE_BUCKET_NAME=GLB
+WHATHEDIFF_VIEWER_URL=https://what-the-diff.vercel.app
+```
 
-**Install for a repo:**
-
+**Setup:**
 ```bash
-# Option A: one-time manual install
-cp node_modules/.bin/diffglb-hook .git/hooks/post-commit
-chmod +x .git/hooks/post-commit
+cd cli && npm install
 
-# Option B: auto-install via package.json (recommended)
-{
-  "scripts": {
-    "prepare": "npx diffglb install-hook"
-  }
-}
+# Install the hook in any repo that has .glb files
+node /path/to/WhatTheDiff/cli/bin/whathediff.js install-hook
+
+# Remove it
+node /path/to/WhatTheDiff/cli/bin/whathediff.js uninstall-hook
 ```
 
-**CLI flags:**
+**Testing without git:**
+```bash
+# Compare any two local GLB files directly
+node cli/bin/whathediff.js --a Models/ConeBase.glb --b Models/ConeExtended.glb
+# Prints: [WhatTheDiff] Uploading...
+# Prints: [WhatTheDiff] Opened: https://what-the-diff.vercel.app?a=...&b=...
+# Opens the viewer in your default browser
+```
 
+**CLI commands:**
 ```
-npx diffglb --a <file> --b <file>     # compare two files
-npx diffglb --headless                 # render to PNG, no browser (used by CI)
-npx diffglb --max-files <n>            # max files before prompting (default 3)
-npx diffglb --no-prompt                # skip batch prompt, open all
-npx diffglb install-hook               # write post-commit hook to .git/hooks/
-npx diffglb uninstall-hook             # remove hook
+node cli/bin/whathediff.js --a <file> --b <file>   # compare two local GLB files
+node cli/bin/whathediff.js install-hook            # install post-commit hook in CWD repo
+node cli/bin/whathediff.js uninstall-hook          # remove the hook
 ```
+
+**Edge case handling:**
+- **New file** (status `A`): skipped with message — no `HEAD~1` version exists to diff against
+- **Deleted file** (status `D`): skipped cleanly
+- **Batch commits**: opens at most `--max-files` tabs (default 3); logs how many were skipped
 
 ### Tier 2: CI pipeline via GitHub Actions (2 to 3 days)
 
-A reusable workflow file that teams drop into `.github/workflows/glb-diff.yml`. Triggers on any PR that touches `.glb` files. Runs diffglb headlessly via Playwright, uploads artifacts, and posts a bot comment to the PR.
+A reusable workflow file that teams drop into `.github/workflows/glb-diff.yml`. Triggers on any PR that touches `.glb` files. Runs WhatTheDiff headlessly via Playwright, uploads artifacts, and posts a bot comment to the PR.
 
 **Correct base comparison for PRs.** Do not use `HEAD~1` with `fetch-depth: 2`. That breaks on merge commits and squash merges where `HEAD~1` is not the PR base. Use the PR event's base and head SHAs (`github.event.pull_request.base.sha` and `github.sha`) with `fetch-depth: 0`, which correctly compares the PR branch to its target regardless of merge strategy:
 
@@ -456,9 +470,9 @@ jobs:
         with:
           node-version: 20
 
-      - name: Install diffglb + Playwright
+      - name: Install WhatTheDiff + Playwright
         run: |
-          npm install -g diffglb
+          npm install -g whathediff
           npx playwright install chromium --with-deps
 
       - name: Find changed GLB files
@@ -478,7 +492,7 @@ jobs:
           for f in ${{ steps.changed.outputs.files }}; do
             git show "$BASE_SHA:$f" > /tmp/prev.glb || continue
             git show HEAD:"$f" > /tmp/curr.glb
-            npx diffglb --a /tmp/prev.glb --b /tmp/curr.glb \
+            npx whathediff --a /tmp/prev.glb --b /tmp/curr.glb \
               --headless \
               --out ./diff-output/$(basename $f .glb)
           done
@@ -552,24 +566,24 @@ jobs:
 
 ### Tier 3: GitHub App with inline PR viewer (1+ week)
 
-A GitHub App that registers as a rich diff renderer for `.glb` files. Reviewers see the full interactive diffglb viewer embedded directly in the PR's "Files changed" tab, not as a bot comment or artifact download, but a live Three.js viewer where the binary blob used to say "Binary files differ."
+A GitHub App that registers as a rich diff renderer for `.glb` files. Reviewers see the full interactive WhatTheDiff viewer embedded directly in the PR's "Files changed" tab, not as a bot comment or artifact download, but a live Three.js viewer where the binary blob used to say "Binary files differ."
 
 **How it works:**
 
 1. The app registers a `content_reference` webhook for the `.glb` extension in its GitHub App manifest.
 2. When GitHub renders a PR that contains a changed `.glb`, it calls the app's webhook with the blob URLs for both the base and head versions.
 3. The app's server fetches both blobs from the GitHub Contents API using the installation token, stores them temporarily (TTL: 10 minutes), and returns a signed iframe URL.
-4. GitHub renders that iframe inline in the diff view. The iframe loads the full diffglb viewer (the same Next.js app) with the two blobs pre-loaded via URL params.
+4. GitHub renders that iframe inline in the diff view. The iframe loads the full WhatTheDiff viewer (the same Next.js app) with the two blobs pre-loaded via URL params.
 5. The viewer runs entirely client-side inside the iframe. Blobs are passed as signed short-lived URLs, never stored permanently.
 
 **App manifest (`app-manifest.json`):**
 
 ```json
 {
-  "name": "diffglb",
+  "name": "WhatTheDiff",
   "description": "Visual diff for GLB 3D model files in pull requests",
-  "url": "https://diffglb.app",
-  "hook_attributes": { "url": "https://diffglb.app/api/webhook" },
+  "url": "https://whathediff.vercel.app",
+  "hook_attributes": { "url": "https://whathediff.vercel.app/api/webhook" },
   "default_permissions": {
     "contents": "read",
     "pull_requests": "read"
@@ -599,7 +613,7 @@ export async function POST(req: Request) {
 
   await createContentAttachment(installation.id, content_reference.id, {
     title: "GLB visual diff",
-    body: `[View interactive diff](https://diffglb.app/view/${sessionId})`,
+    body: `[View interactive diff](https://whathediff.vercel.app/view/${sessionId})`,
   });
 
   return new Response("ok");

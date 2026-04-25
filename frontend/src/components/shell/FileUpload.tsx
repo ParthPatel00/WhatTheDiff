@@ -48,7 +48,7 @@ function DropZone({ side }: DropZoneProps) {
         return;
       }
       if (file.size > WARN_SIZE_BYTES) {
-        console.warn(`[diffglb] ${file.name} is ${(file.size / 1024 / 1024).toFixed(1)} MB — parsing may be slow.`);
+        console.warn(`[WhatTheDiff] ${file.name} is ${(file.size / 1024 / 1024).toFixed(1)} MB — parsing may be slow.`);
       }
 
       const prevModel = isA ? store.modelA : store.modelB;

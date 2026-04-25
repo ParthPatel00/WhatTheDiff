@@ -9,7 +9,7 @@ const jetbrainsMono = JetBrains_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "diffglb",
+  title: "WhatTheDiff",
   description: "Visual diff for .glb 3D model files",
 };
 

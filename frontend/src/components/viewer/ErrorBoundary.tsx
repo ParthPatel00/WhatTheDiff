@@ -23,7 +23,7 @@ export class ErrorBoundary extends React.Component<ErrorBoundaryProps, ErrorBoun
   }
 
   override componentDidCatch(error: Error, info: React.ErrorInfo) {
-    console.error("[diffglb] Render error:", error, info.componentStack);
+    console.error("[WhatTheDiff] Render error:", error, info.componentStack);
   }
 
   override render() {

@@ -1,0 +1,19 @@
+{
+  "name": "whathediff",
+  "version": "0.1.0",
+  "description": "Git hook + CLI for GLB visual diffs — opens WhatTheDiff viewer after commit",
+  "bin": {
+    "whathediff": "./bin/whathediff.js"
+  },
+  "type": "commonjs",
+  "scripts": {
+    "install-hook": "node bin/whathediff.js install-hook"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.49.4",
+    "dotenv": "^16.5.0"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}
