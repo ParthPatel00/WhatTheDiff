@@ -1,27 +1,30 @@
 "use client";
 
-/**
- * Minimal viewer shell used during Phase 1 testing.
- * Phase 4 replaces this with the full DiffControls + Header + StatsPanel layout.
- *
- * Integration notes for Phase 2 / Phase 3:
- *  - Add PixelDiffView, AllAnglesView imports and cases below (Phase 2)
- *  - Replace <StatsPanelPlaceholder> with <StatsPanel /> import (Phase 3)
- *  - GhostOverlayView case is already wired up as a stub (Phase 3)
- */
-
 import dynamic from "next/dynamic";
 import { useDiffStore } from "@/stores/diffStore";
-import { ErrorBoundary } from "./ErrorBoundary";
+import { ErrorBoundary } from "../viewer/ErrorBoundary";
+import { StatsPanel } from "../ghost/StatsPanel";
 import type { ViewMode } from "@/lib/types";
 
-// Three.js components must be client-only (access window at runtime)
+// Three.js / canvas components must be client-only
 const SideBySideView = dynamic(
-  () => import("./SideBySideView").then((m) => m.SideBySideView),
+  () => import("../viewer/SideBySideView").then((m) => m.SideBySideView),
   { ssr: false, loading: () => <div style={{ flex: 1, background: "#1e1e1e" }} /> }
 );
 const TurntableView = dynamic(
-  () => import("./TurntableView").then((m) => m.TurntableView),
+  () => import("../viewer/TurntableView").then((m) => m.TurntableView),
+  { ssr: false, loading: () => <div style={{ flex: 1, background: "#1e1e1e" }} /> }
+);
+const GhostOverlayView = dynamic(
+  () => import("../ghost/GhostOverlayView").then((m) => m.GhostOverlayView),
+  { ssr: false, loading: () => <div style={{ flex: 1, background: "#1e1e1e" }} /> }
+);
+const AllAnglesView = dynamic(
+  () => import("../diff/AllAnglesView"),
+  { ssr: false, loading: () => <div style={{ flex: 1, background: "#1e1e1e" }} /> }
+);
+const PixelDiffView = dynamic(
+  () => import("../diff/PixelDiffView"),
   { ssr: false, loading: () => <div style={{ flex: 1, background: "#1e1e1e" }} /> }
 );
 
@@ -77,8 +80,7 @@ export function ViewerLayout() {
           <ActiveView mode={viewMode} />
         </ErrorBoundary>
 
-        {/* Stats panel placeholder — Phase 3 replaces this with <StatsPanel /> */}
-        <StatsPanelPlaceholder />
+        <StatsPanel />
       </div>
     </div>
   );
@@ -90,52 +92,11 @@ function ActiveView({ mode }: { mode: ViewMode }) {
       return <SideBySideView />;
     case "turntable":
       return <TurntableView />;
-    // Phase 3 will fill these in:
     case "ghost":
-      return <ComingSoonView label="ghost overlay" phase={3} />;
-    // Phase 2 will fill these in:
+      return <GhostOverlayView />;
     case "pixel-diff":
-      return <ComingSoonView label="pixel diff" phase={2} />;
+      return <PixelDiffView />;
     case "all-angles":
-      return <ComingSoonView label="all angles" phase={2} />;
+      return <AllAnglesView />;
   }
-}
-
-function ComingSoonView({ label, phase }: { label: string; phase: number }) {
-  return (
-    <div style={{
-      flex: 1,
-      display: "flex",
-      flexDirection: "column",
-      alignItems: "center",
-      justifyContent: "center",
-      gap: 8,
-      background: "var(--bg-canvas)",
-    }}>
-      <span style={{ fontFamily: "var(--font-mono)", fontSize: 13, color: "var(--text-muted)" }}>
-        {label}
-      </span>
-      <span style={{ fontFamily: "var(--font-mono)", fontSize: 10, color: "var(--text-dim)" }}>
-        implemented in Phase {phase}
-      </span>
-    </div>
-  );
-}
-
-function StatsPanelPlaceholder() {
-  return (
-    <div style={{
-      width: 260,
-      background: "var(--bg-surface)",
-      borderLeft: "1px solid var(--border)",
-      display: "flex",
-      alignItems: "center",
-      justifyContent: "center",
-      flexShrink: 0,
-    }}>
-      <span style={{ fontFamily: "var(--font-mono)", fontSize: 10, color: "var(--text-dim)" }}>
-        stats panel · Phase 3
-      </span>
-    </div>
-  );
 }
