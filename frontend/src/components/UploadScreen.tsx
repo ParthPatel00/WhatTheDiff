@@ -9,6 +9,11 @@ import { FileUpload } from "./FileUpload";
 
 const AllAnglesView = dynamic(() => import("@/components/AllAnglesView"), { ssr: false });
 const PixelDiffView = dynamic(() => import("@/components/PixelDiffView"), { ssr: false });
+// ViewerLayout uses Three.js — must be client-only
+const ViewerLayout = dynamic(
+  () => import("./ViewerLayout").then((m) => m.ViewerLayout),
+  { ssr: false, loading: () => <div style={{ flex: 1, background: "#1e1e1e" }} /> }
+);
 
 export function UploadScreen() {
   const modelA = useDiffStore((s) => s.modelA);
@@ -17,6 +22,14 @@ export function UploadScreen() {
 
   // Kick off renders + diffs whenever models or tolerance change
   useDiffResults();
+  if (bothLoaded) {
+    return (
+      <div style={{ background: "var(--bg)", height: "100vh", display: "flex", flexDirection: "column" }}>
+        <Header />
+        <ViewerLayout />
+      </div>
+    );
+  }
 
   return (
     <div style={{ background: "var(--bg)", minHeight: "100vh", display: "flex", flexDirection: "column" }}>
@@ -55,62 +68,32 @@ export function UploadScreen() {
                 Upload two GLB files to see what changed. Fully client-side, nothing leaves your browser.
               </p>
             </div>
+        {/* Title */}
+        <div style={{ textAlign: "center", marginBottom: 40 }}>
+          <h1 style={{
+            fontFamily: "var(--font-mono)",
+            fontSize: 22,
+            fontWeight: 700,
+            color: "var(--text)",
+            margin: 0,
+            letterSpacing: -0.3,
+          }}>
+            Visual diff for 3D models
+          </h1>
+          <p style={{
+            fontFamily: "var(--font-mono)",
+            fontSize: 12,
+            color: "var(--text-muted)",
+            marginTop: 8,
+          }}>
+            Upload two GLB files to see what changed. Fully client-side, nothing leaves your browser.
+          </p>
+        </div>
 
-            {/* Drop zones */}
-            <div style={{ width: "100%", maxWidth: 720 }}>
-              <FileUpload />
-            </div>
-
-            {/* Keyboard shortcuts hint */}
-            <div style={{
-              marginTop: 40,
-              padding: "12px 20px",
-              background: "var(--bg-surface)",
-              borderRadius: 6,
-              border: "1px solid var(--border)",
-              fontFamily: "var(--font-mono)",
-              fontSize: 10,
-              color: "var(--text-dim)",
-              display: "flex",
-              gap: 20,
-            }}>
-              <span>
-                <kbd style={{
-                  padding: "1px 5px",
-                  background: "var(--bg-elevated)",
-                  borderRadius: 3,
-                  border: "1px solid var(--border)",
-                  color: "var(--text-muted)",
-                }}>1-5</kbd>
-                {" "}switch modes
-              </span>
-              <span>
-                <kbd style={{
-                  padding: "1px 5px",
-                  background: "var(--bg-elevated)",
-                  borderRadius: 3,
-                  border: "1px solid var(--border)",
-                  color: "var(--text-muted)",
-                }}>S</kbd>
-                {" "}toggle sync
-              </span>
-              <span>
-                <kbd style={{
-                  padding: "1px 5px",
-                  background: "var(--bg-elevated)",
-                  borderRadius: 3,
-                  border: "1px solid var(--border)",
-                  color: "var(--text-muted)",
-                }}>← →</kbd>
-                {" "}step angles
-              </span>
-            </div>
-          </>
-        )}
-      </div>
-    </div>
-  );
-}
+        {/* Drop zones */}
+        <div style={{ width: "100%", maxWidth: 720 }}>
+          <FileUpload />
+        </div>
 
 // ─── Temporary test area (Phase 4 will replace this with the real layout) ───
 
@@ -177,6 +160,36 @@ function DiffTestArea() {
         overflow: "hidden",
       }}>
         {view === "all-angles" ? <AllAnglesView /> : <PixelDiffView />}
+        {/* Keyboard shortcuts hint */}
+        <div style={{
+          marginTop: 40,
+          padding: "12px 20px",
+          background: "var(--bg-surface)",
+          borderRadius: 6,
+          border: "1px solid var(--border)",
+          fontFamily: "var(--font-mono)",
+          fontSize: 10,
+          color: "var(--text-dim)",
+          display: "flex",
+          gap: 20,
+        }}>
+          {[
+            { key: "1-5", desc: "switch modes" },
+            { key: "S", desc: "toggle sync" },
+            { key: "← →", desc: "step angles" },
+          ].map(({ key, desc }) => (
+            <span key={key}>
+              <kbd style={{
+                padding: "1px 5px",
+                background: "var(--bg-elevated)",
+                borderRadius: 3,
+                border: "1px solid var(--border)",
+                color: "var(--text-muted)",
+              }}>{key}</kbd>
+              {" "}{desc}
+            </span>
+          ))}
+        </div>
       </div>
     </div>
   );

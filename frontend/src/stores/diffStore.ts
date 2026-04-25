@@ -6,6 +6,8 @@ interface DiffState {
   modelB: LoadedModel | null;
   bufferA: ArrayBuffer | null;
   bufferB: ArrayBuffer | null;
+  fileNameA: string;
+  fileNameB: string;
   loadingA: boolean;
   loadingB: boolean;
   errorA: string | null;
@@ -22,6 +24,8 @@ interface DiffState {
   setModelB: (model: LoadedModel | null) => void;
   setBufferA: (buffer: ArrayBuffer | null) => void;
   setBufferB: (buffer: ArrayBuffer | null) => void;
+  setFileNameA: (name: string) => void;
+  setFileNameB: (name: string) => void;
   setLoadingA: (loading: boolean) => void;
   setLoadingB: (loading: boolean) => void;
   setErrorA: (error: string | null) => void;
@@ -40,6 +44,8 @@ export const useDiffStore = create<DiffState>((set) => ({
   modelB: null,
   bufferA: null,
   bufferB: null,
+  fileNameA: "",
+  fileNameB: "",
   loadingA: false,
   loadingB: false,
   errorA: null,
@@ -56,6 +62,8 @@ export const useDiffStore = create<DiffState>((set) => ({
   setModelB: (model) => set({ modelB: model }),
   setBufferA: (buffer) => set({ bufferA: buffer }),
   setBufferB: (buffer) => set({ bufferB: buffer }),
+  setFileNameA: (name) => set({ fileNameA: name }),
+  setFileNameB: (name) => set({ fileNameB: name }),
   setLoadingA: (loading) => set({ loadingA: loading }),
   setLoadingB: (loading) => set({ loadingB: loading }),
   setErrorA: (error) => set({ errorA: error }),

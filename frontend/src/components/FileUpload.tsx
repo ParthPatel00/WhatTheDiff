@@ -58,9 +58,11 @@ function DropZone({ side }: DropZoneProps) {
       const setError = isA ? store.setErrorA : store.setErrorB;
       const setModel = isA ? store.setModelA : store.setModelB;
       const setBuffer = isA ? store.setBufferA : store.setBufferB;
+      const setFileName = isA ? store.setFileNameA : store.setFileNameB;
 
       setError(null);
       setLoading(true);
+      setFileName(file.name);
       pendingFile.current = { name: file.name, size: file.size };
 
       try {
