@@ -39,8 +39,8 @@ export function TurntableView() {
       const angle = angleRef.current;
 
       // Both cameras orbit at the same Y angle, keeping sync always on
-      const dist = cameraARef.current.position.distanceTo(new THREE.Vector3());
       const target = controlsARef.current?.target ?? new THREE.Vector3();
+      const dist = cameraARef.current.position.distanceTo(target);
 
       for (const cam of [cameraARef.current, cameraBRef.current]) {
         cam.position.x = target.x + dist * Math.sin(angle);

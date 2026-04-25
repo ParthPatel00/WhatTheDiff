@@ -22,6 +22,7 @@ export interface StructuralData {
   document: any;
   vertexCount: number;
   triangleCount: number;
+  meshCount: number;
   materialCount: number;
   nodeCount: number;
   animationCount: number;
@@ -35,7 +36,19 @@ export interface LoadedModel {
 export interface MaterialDiff {
   name: string;
   changes: {
-    property: "baseColorFactor" | "roughness" | "metalness";
+    property:
+      | "baseColorFactor"
+      | "roughness"
+      | "metalness"
+      | "emissiveFactor"
+      | "doubleSided"
+      | "alphaMode"
+      | "alphaCutoff"
+      | "baseColorTexture"
+      | "normalTexture"
+      | "emissiveTexture"
+      | "occlusionTexture"
+      | "metallicRoughnessTexture";
     before: unknown;
     after: unknown;
   }[];
@@ -50,6 +63,7 @@ export interface DiffResult {
 export interface StructuralDiffResult {
   vertexDelta: number;
   triangleDelta: number;
+  meshCountDelta: number;
   boundingBox: {
     a: THREE.Box3;
     b: THREE.Box3;
