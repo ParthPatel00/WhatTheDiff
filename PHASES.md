@@ -71,7 +71,7 @@ Phases 1, 2, 3 do not import from each other. They each consume the Phase 0 stor
 
 ---
 
-## Phase 1 — Viewers core: Side-by-side, Turntable, WebGL recovery (one dev, ~6-8 hrs)
+## Phase 1 — Viewers core: Side-by-side, Turntable, WebGL recovery ✅ COMPLETE
 
 **Goal:** Implement the foundational 3D viewer and the two view modes that don't need the diff pipeline.
 
@@ -80,19 +80,25 @@ Phases 1, 2, 3 do not import from each other. They each consume the Phase 0 stor
 **Depends on:** Phase 0 (`diffStore`, `modelLoader`, types).
 
 **Deliverables:**
-- `src/components/ViewerPanel.tsx` — reusable single-canvas Three.js viewer. Handles auto-framing (bounding-sphere camera distance), default lighting (ambient 0.5 + directional 1.0), `OrbitControls` from `three/addons/controls/OrbitControls.js`, continuous render loop, `preserveDrawingBuffer: true` on the renderer.
-- `src/components/SideBySideView.tsx` — **single `WebGLRenderer`** with `setScissor` + `setViewport` for two views. Camera sync via `change` event with `syncingRef` guard. **Lock/unlock toggle** (default locked). When unlocked, only the viewport under the cursor orbits (determined by pointer X). Re-locking snaps secondary camera to primary. Auto-frames using the larger of the two bounding spheres.
-- `src/components/TurntableView.tsx` — same as `SideBySideView` but with both cameras orbiting on the Y axis automatically (sync always on). No extra controls.
-- `src/components/ErrorBoundary.tsx` — React error boundary plus `webglcontextlost` / `webglcontextrestored` handlers on every canvas. On loss: overlay "WebGL context lost. Click to restore." On click: `renderer.forceContextRestore()`. On restore: rebuild scenes and resume render loop.
-- `src/hooks/useThreeViewer.ts` — encapsulates renderer setup, render loop, resize observer, cleanup on unmount (calls `disposeModel`, disposes `renderer`, removes event listeners).
+- `src/components/ViewerPanel.tsx` — reusable single-canvas Three.js viewer. Auto-framing via bounding-sphere (`radius / sin(fov/2)`). Exports `applySceneLighting`, `frameCameraToObject`, and `frameCamerasToBoth` utilities for Phase 2/3. Lighting: `AmbientLight(0.4)` + 6 `DirectionalLight(0.35)` sources at N/S/E/W/top/bottom — every face visible from any orbit angle. `LinearToneMapping` at 1.0 (matches Blender's neutral solid viewport). No IBL/environment map.
+- `src/components/SideBySideView.tsx` — single `WebGLRenderer` with `setScissor` + `setViewport`. Camera sync via `change` event + `syncingRef` guard. Lock/unlock toggle (default locked). On pointerdown when unlocked, swaps `controls.object` to whichever camera's half was clicked. Re-locking snaps cameraB to cameraA. Frames to larger bounding sphere.
+- `src/components/TurntableView.tsx` — same scissor/viewport setup, auto-rotates both cameras on Y axis at a fixed `ROTATION_SPEED`. OrbitControls disabled (user can't orbit). Always synced.
+- `src/components/ErrorBoundary.tsx` — React error boundary class + `WebGLContextLostOverlay` component. Overlay shown by viewer components on context loss; calls `renderer.forceContextRestore()` on click.
+- `src/hooks/useThreeViewer.ts` — renderer setup, `preserveDrawingBuffer: true`, animation loop (renderFn ref pattern), ResizeObserver, context lost/restored handlers, full cleanup on unmount.
+- `src/components/ViewerLayout.tsx` — minimal viewer shell (mode bar + active view + stats placeholder). Phase 4 replaces this. Phase 2 adds `PixelDiffView`/`AllAnglesView` cases; Phase 3 adds `GhostOverlayView` case and replaces `StatsPanelPlaceholder` with `<StatsPanel />`. All `dynamic()` imports include dark `loading` fallbacks to prevent white flash during HMR.
+- `diffStore` extended with `fileNameA`/`fileNameB` fields (safe addition, no renames).
+- `src/app/layout.tsx` — `<html>` and `<body>` have inline `background: #1a1a1a` so the page stays dark even during dynamic import loading.
+- All `next/dynamic` calls include `loading` fallbacks; both `page.tsx` and `UploadScreen.tsx` dynamic imports covered.
 
 **I'm done when:**
-- [ ] Both models load and render side-by-side in a single canvas (verify: only one WebGL context in DevTools).
-- [ ] Orbiting one viewport orbits the other when locked. Unlocking lets you orbit independently.
-- [ ] Re-locking snaps the secondary camera to the primary's pose.
-- [ ] Turntable mode auto-rotates both models in sync.
-- [ ] Killing the WebGL context (DevTools → Rendering → "Lose WebGL context") shows the recovery overlay; clicking restores.
-- [ ] No console errors after swapping models 5 times.
+- [x] Both models load and render side-by-side in a single canvas (verify: only one WebGL context in DevTools).
+- [x] Orbiting one viewport orbits the other when locked. Unlocking lets you orbit independently.
+- [x] Re-locking snaps the secondary camera to the primary's pose.
+- [x] Turntable mode auto-rotates both models in sync.
+- [x] Killing the WebGL context (DevTools → Rendering → "Lose WebGL context") shows the recovery overlay; clicking restores.
+- [x] No console errors after swapping models 5 times.
+- [x] All faces of a model are visible when orbiting (6-directional light rig).
+- [x] Page does not flash white during HMR or dynamic import loading.
 
 ---
 
