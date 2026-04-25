@@ -23,8 +23,8 @@ const AllAnglesView = dynamic(
   () => import("../diff/AllAnglesView"),
   { ssr: false, loading: () => <div style={{ flex: 1, background: "#1e1e1e" }} /> }
 );
-const PixelDiffView = dynamic(
-  () => import("../diff/PixelDiffView"),
+const FreeformPixelDiffView = dynamic(
+  () => import("../diff/FreeformPixelDiffView"),
   { ssr: false, loading: () => <div style={{ flex: 1, background: "#1e1e1e" }} /> }
 );
 
@@ -95,7 +95,7 @@ function ActiveView({ mode }: { mode: ViewMode }) {
     case "ghost":
       return <GhostOverlayView />;
     case "pixel-diff":
-      return <PixelDiffView />;
+      return <FreeformPixelDiffView />;
     case "all-angles":
       return <AllAnglesView />;
   }
