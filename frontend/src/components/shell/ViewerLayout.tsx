@@ -39,12 +39,14 @@ const MODES: { id: ViewMode; label: string }[] = [
 export function ViewerLayout() {
   const viewMode = useDiffStore((s) => s.viewMode);
   const setViewMode = useDiffStore((s) => s.setViewMode);
+  const triggerCameraReset = useDiffStore((s) => s.triggerCameraReset);
 
   return (
     <div style={{ display: "flex", flexDirection: "column", flex: 1, height: "100%", minHeight: 0 }}>
       {/* Mode bar */}
       <div style={{
         display: "flex",
+        alignItems: "center",
         gap: 2,
         background: "var(--bg)",
         padding: "10px 16px",
@@ -72,6 +74,36 @@ export function ViewerLayout() {
             {m.label}
           </button>
         ))}
+
+        {/* Reset camera — hidden for all-angles which has no freeform camera */}
+        {viewMode !== "all-angles" && (
+          <button
+            onClick={triggerCameraReset}
+            aria-label="Reset camera"
+            title="Reset camera"
+            style={{
+              marginLeft: "auto",
+              display: "flex", alignItems: "center", gap: 6,
+              padding: "6px 12px",
+              borderRadius: 4,
+              border: "1px solid var(--border)",
+              background: "transparent",
+              color: "var(--text-muted)",
+              fontFamily: "var(--font-mono)",
+              fontSize: 11,
+              cursor: "pointer",
+              transition: "all 0.15s ease",
+            }}
+            onMouseEnter={(e) => { e.currentTarget.style.color = "var(--text)"; e.currentTarget.style.borderColor = "var(--border-focus)"; }}
+            onMouseLeave={(e) => { e.currentTarget.style.color = "var(--text-muted)"; e.currentTarget.style.borderColor = "var(--border)"; }}
+          >
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+              <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" />
+              <path d="M3 3v5h5" />
+            </svg>
+            reset camera
+          </button>
+        )}
       </div>
 
       {/* Main area: viewer + stats sidebar */}

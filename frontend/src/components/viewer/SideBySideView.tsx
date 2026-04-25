@@ -15,6 +15,7 @@ export function SideBySideView() {
   const fileNameB = useDiffStore((s) => s.fileNameB);
   const cameraSynced = useDiffStore((s) => s.cameraSynced);
   const setCameraSynced = useDiffStore((s) => s.setCameraSynced);
+  const cameraResetToken = useDiffStore((s) => s.cameraResetToken);
 
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const sceneARef = useRef(new THREE.Scene());
@@ -165,6 +166,16 @@ export function SideBySideView() {
 
     return () => { scene.remove(modelB.scene); };
   }, [modelB]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Reset camera to initial framing
+  useEffect(() => {
+    if (!modelA || !modelB) return;
+    frameCamerasToBoth(
+      cameraARef.current, cameraBRef.current,
+      modelA.scene, modelB.scene,
+      controlsRef.current ?? undefined
+    );
+  }, [cameraResetToken]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Re-lock: snap cameraB to cameraA and reset controls to primary camera
   useEffect(() => {

@@ -15,6 +15,8 @@ export default function FreeformPixelDiffView() {
   const modelB = useDiffStore((s) => s.modelB);
   const tolerance = useDiffStore((s) => s.tolerance);
 
+  const cameraResetToken = useDiffStore((s) => s.cameraResetToken);
+
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [pct, setPct] = useState<number | null>(null);
 
@@ -23,10 +25,26 @@ export default function FreeformPixelDiffView() {
   const toleranceRef = useRef(tolerance);
   const needsUpdateRef = useRef(true);
 
+  // Refs so the reset effect can reach inside the animation loop's closure
+  const cameraRef = useRef<THREE.PerspectiveCamera | null>(null);
+  const controlsRef = useRef<OrbitControls | null>(null);
+  const initialPosRef = useRef(new THREE.Vector3());
+  const initialTargetRef = useRef(new THREE.Vector3());
+
   useEffect(() => {
     toleranceRef.current = tolerance;
-    needsUpdateRef.current = true; // re-diff on next frame without re-rendering
+    needsUpdateRef.current = true;
   }, [tolerance]);
+
+  useEffect(() => {
+    const camera = cameraRef.current;
+    const controls = controlsRef.current;
+    if (!camera || !controls) return;
+    camera.position.copy(initialPosRef.current);
+    controls.target.copy(initialTargetRef.current);
+    controls.update();
+    needsUpdateRef.current = true;
+  }, [cameraResetToken]);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -92,6 +110,12 @@ export default function FreeformPixelDiffView() {
     controls.enableDamping = true;
     controls.dampingFactor = 0.1;
     controls.update();
+
+    // Expose to reset effect
+    cameraRef.current = camera;
+    controlsRef.current = controls;
+    initialPosRef.current.copy(camera.position);
+    initialTargetRef.current.copy(cameraTarget);
 
     controls.addEventListener("change", () => { needsUpdateRef.current = true; });
 

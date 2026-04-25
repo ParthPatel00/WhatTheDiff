@@ -15,6 +15,7 @@ export function TurntableView() {
   const modelB = useDiffStore((s) => s.modelB);
   const fileNameA = useDiffStore((s) => s.fileNameA);
   const fileNameB = useDiffStore((s) => s.fileNameB);
+  const cameraResetToken = useDiffStore((s) => s.cameraResetToken);
 
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const sceneARef = useRef(new THREE.Scene());
@@ -152,6 +153,15 @@ export function TurntableView() {
     );
     return () => { scene.remove(modelB.scene); };
   }, [modelB]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => {
+    if (!modelA || !modelB) return;
+    frameCamerasToBoth(
+      cameraARef.current, cameraBRef.current,
+      modelA.scene, modelB.scene,
+      controlsARef.current ?? undefined
+    );
+  }, [cameraResetToken]); // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
     <div style={{ display: "flex", flexDirection: "column", flex: 1, minHeight: 0 }}>

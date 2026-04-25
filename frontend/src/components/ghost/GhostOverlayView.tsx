@@ -4,6 +4,7 @@ import { useEffect, useRef } from "react";
 import * as THREE from "three";
 import { OrbitControls } from "three/addons/controls/OrbitControls.js";
 import { useDiffStore } from "@/stores/diffStore";
+import { frameCameraToObject } from "@/components/viewer/ViewerPanel";
 import { Slider } from "@/components/ui/slider";
 
 // ─── tintScene ───────────────────────────────────────────────────────────────
@@ -125,6 +126,7 @@ export function GhostOverlayView() {
   const opacity = useDiffStore((s) => s.opacity);
   const setOpacity = useDiffStore((s) => s.setOpacity);
   const colorblindMode = useDiffStore((s) => s.colorblindMode);
+  const cameraResetToken = useDiffStore((s) => s.cameraResetToken);
 
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const rendererRef = useRef<THREE.WebGLRenderer | null>(null);
@@ -269,6 +271,14 @@ export function GhostOverlayView() {
       m.needsUpdate = true;
     });
   }, [opacity]);
+
+  useEffect(() => {
+    const scene = sceneRef.current;
+    const camera = cameraRef.current;
+    const controls = controlsRef.current;
+    if (!scene || !camera || !controls) return;
+    frameCameraToObject(camera, scene, controls);
+  }, [cameraResetToken]);
 
   // ── colors for the legend strip ──
   const colorAStr = colorblindMode ? "rgb(80,130,255)" : "rgb(255,80,80)";

@@ -19,6 +19,7 @@ interface DiffState {
   colorblindMode: boolean;
   diffResults: DiffResult[];
   structuralDiffResult: StructuralDiffResult | null;
+  cameraResetToken: number;
 
   setModelA: (model: LoadedModel | null) => void;
   setModelB: (model: LoadedModel | null) => void;
@@ -37,6 +38,7 @@ interface DiffState {
   setColorblindMode: (enabled: boolean) => void;
   setDiffResults: (results: DiffResult[]) => void;
   setStructuralDiffResult: (result: StructuralDiffResult | null) => void;
+  triggerCameraReset: () => void;
 }
 
 export const useDiffStore = create<DiffState>((set) => ({
@@ -57,6 +59,7 @@ export const useDiffStore = create<DiffState>((set) => ({
   colorblindMode: false,
   diffResults: [],
   structuralDiffResult: null,
+  cameraResetToken: 0,
 
   setModelA: (model) => set({ modelA: model }),
   setModelB: (model) => set({ modelB: model }),
@@ -75,4 +78,5 @@ export const useDiffStore = create<DiffState>((set) => ({
   setColorblindMode: (enabled) => set({ colorblindMode: enabled }),
   setDiffResults: (results) => set({ diffResults: results }),
   setStructuralDiffResult: (result) => set({ structuralDiffResult: result }),
+  triggerCameraReset: () => set((s) => ({ cameraResetToken: s.cameraResetToken + 1 })),
 }));
