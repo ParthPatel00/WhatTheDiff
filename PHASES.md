@@ -40,7 +40,7 @@ Phases 1, 2, 3 do not import from each other. They each consume the Phase 0 stor
 
 ---
 
-## Phase 0 — Foundation (BLOCKING; one dev, ~2-3 hrs)
+## Phase 0 — Foundation ✅ COMPLETE
 
 **Goal:** Stand up the Next.js project, the Zustand store, the model loader, and the file upload zone, so the other two devs can start building views against real loaded models.
 
@@ -48,24 +48,26 @@ Phases 1, 2, 3 do not import from each other. They each consume the Phase 0 stor
 
 **Deliverables:**
 - `package.json` with pinned versions of `next@14+`, `three`, `@gltf-transform/core`, `@gltf-transform/extensions`, `react-dropzone`, `zustand`, `tailwindcss`, `shadcn/ui` deps.
-- Next.js 14 App Router scaffold under `src/` with Tailwind configured.
+- Next.js 14 App Router scaffold under `frontend/src/` with Tailwind configured.
 - `src/lib/types.ts` — shared types: `LoadedModel`, `StructuralData`, `DiffResult`, `ViewMode` enum (`'side-by-side' | 'ghost' | 'pixel-diff' | 'turntable' | 'all-angles'`), `CameraAngle` enum.
 - `src/lib/modelLoader.ts` — single load pass with `buffer.slice(0)` cloning. Configures `DRACOLoader` (CDN pinned to 1.5.6) and `KTX2Loader`. Returns `{ scene, structuralData }`.
 - `src/lib/disposeModel.ts` — handles all `Object3D` subtypes via property access, not `instanceof Mesh`.
 - `src/stores/diffStore.ts` — Zustand store with: `modelA`, `modelB`, `bufferA`, `bufferB`, `loadingA`, `loadingB`, `errorA`, `errorB`, `viewMode`, `tolerance` (default 10), `opacity` (default 0.50), `cameraSynced` (default true), `colorblindMode` (default false), `diffResults`, plus actions to set each.
 - `src/components/FileUpload.tsx` — dual drag-and-drop, validates `.glb`, warns >50MB, rejects >200MB, calls `modelLoader` and writes to store.
 - `src/components/LoadingOverlay.tsx` — progress overlay with file name, size, spinner.
-- `src/app/page.tsx` — minimal page with `<FileUpload />` and a placeholder showing "Both models loaded" once both are in the store. Real layout comes in Phase 4.
-- `src/app/layout.tsx`, `globals.css`.
-- `README.md` with setup commands.
+- `src/app/page.tsx` — upload screen with `<FileUpload />` and a "Both models loaded" placeholder. Real layout comes in Phase 4.
+- `src/app/layout.tsx`, `globals.css` — dark theme matching mockup design tokens (JetBrains Mono, Inter).
+- Additional components matching `UI/diffglb_mockups.jsx`: `Header.tsx`, `UploadScreen.tsx`, `BothLoadedBanner.tsx`.
+
+**Note:** App lives under `frontend/` (create-next-app requires a lowercase directory name).
 
 **I'm done when:**
-- [ ] `npm run dev` boots without errors.
-- [ ] Dropping two real `.glb` files (DamagedHelmet works) populates the store with both `scene` and `structuralData` for each.
-- [ ] Replacing a model calls `disposeModel` on the previous one (verify in console: no GPU leak warnings after 5 swaps).
-- [ ] `WebIO` is used for parsing (not `NodeIO`); does not throw in browser.
-- [ ] Buffer cloning is in place (`buffer.slice(0)` before second parser).
-- [ ] All Three.js imports use `next/dynamic` with `{ ssr: false }` where needed (in components, not in `lib/`).
+- [x] `npm run dev` boots without errors.
+- [x] Dropping two real `.glb` files (DamagedHelmet works) populates the store with both `scene` and `structuralData` for each.
+- [x] Replacing a model calls `disposeModel` on the previous one (verify in console: no GPU leak warnings after 5 swaps).
+- [x] `WebIO` is used for parsing (not `NodeIO`); does not throw in browser.
+- [x] Buffer cloning is in place (`buffer.slice(0)` before second parser).
+- [x] All Three.js imports use `next/dynamic` with `{ ssr: false }` where needed (in components, not in `lib/`).
 
 ---
 
