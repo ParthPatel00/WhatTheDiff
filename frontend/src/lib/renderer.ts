@@ -37,36 +37,6 @@ function flipVertically(src: Uint8ClampedArray, width: number, height: number): 
   return out;
 }
 
-interface Normalization {
-  // Translation applied to the scene clone before rendering
-  offset: THREE.Vector3;
-  // Bounding sphere of the model after the offset is applied
-  sphere: THREE.Sphere;
-}
-
-/**
- * Computes the minimal transform needed to position a model consistently:
- * - X and Z: centered on the bounding box midpoint (handles horizontal drift)
- * - Y: aligned so the floor (bounding box minimum) sits at y = 0
- *
- * This keeps the model's base at the origin it was exported with, rather than
- * shifting it by the bounding box center (which differs between models of
- * different heights and breaks alignment of shared base positions).
- */
-function computeNormalization(scene: THREE.Group): Normalization {
-  const box = new THREE.Box3().setFromObject(scene);
-  const center = new THREE.Vector3();
-  box.getCenter(center);
-
-  const offset = new THREE.Vector3(-center.x, -box.min.y, -center.z);
-
-  // Sphere of the normalized model (used to size the camera distance)
-  const normalizedBox = box.clone().translate(offset);
-  const sphere = new THREE.Sphere();
-  normalizedBox.getBoundingSphere(sphere);
-
-  return { offset, sphere };
-}
 
 function renderAngle(
   renderer: THREE.WebGLRenderer,
@@ -146,25 +116,40 @@ export interface RenderOutput {
 /**
  * Renders both models from all 6 camera angles with identical normalization.
  * Results are cached by scene identity and reused on subsequent calls.
+ *
+ * Normalization strategy:
+ *   - The offset is derived from model A and applied to BOTH models unchanged.
+ *     This preserves their relative positions, which is critical when B is a
+ *     modified version of A exported from the same coordinate system. A
+ *     per-model offset would shift B differently whenever the modification
+ *     changes the bounding box (e.g. extruding a chin), making the whole mesh
+ *     appear misaligned even though only one part changed.
+ *   - Camera distance is sized from the union bounding box of both models after
+ *     the shared offset is applied, so neither model is clipped.
  */
 export function renderBothModels(sceneA: THREE.Group, sceneB: THREE.Group): RenderOutput {
   const cachedA = renderCache.get(sceneA);
   const cachedB = renderCache.get(sceneB);
   if (cachedA && cachedB) return { imageDataA: cachedA, imageDataB: cachedB };
 
-  const normA = computeNormalization(sceneA);
-  const normB = computeNormalization(sceneB);
+  const boxA = new THREE.Box3().setFromObject(sceneA);
+  const boxB = new THREE.Box3().setFromObject(sceneB);
 
-  const radius = Math.max(normA.sphere.radius, normB.sphere.radius);
-  // Add 20% padding so the model never clips the canvas edge
-  const cameraDistance = (radius / Math.tan(((FOV / 2) * Math.PI) / 180)) * 1.2;
+  // Shared offset from model A: center X/Z, floor Y at 0
+  const centerA = new THREE.Vector3();
+  boxA.getCenter(centerA);
+  const sharedOffset = new THREE.Vector3(-centerA.x, -boxA.min.y, -centerA.z);
 
-  // Point the camera at the midpoint between the two normalized sphere centers
-  // so both models are framed consistently regardless of height difference
-  const cameraTarget = normA.sphere.center.clone().add(normB.sphere.center).multiplyScalar(0.5);
+  // Union of both bounding boxes after the shared offset → correct camera framing
+  const unionBox = boxA.clone().translate(sharedOffset).union(boxB.clone().translate(sharedOffset));
+  const unionSphere = new THREE.Sphere();
+  unionBox.getBoundingSphere(unionSphere);
 
-  const imageDataA = cachedA ?? renderAllAngles(sceneA, normA.offset, cameraDistance, cameraTarget);
-  const imageDataB = cachedB ?? renderAllAngles(sceneB, normB.offset, cameraDistance, cameraTarget);
+  const cameraDistance = (unionSphere.radius / Math.tan(((FOV / 2) * Math.PI) / 180)) * 1.2;
+  const cameraTarget = unionSphere.center;
+
+  const imageDataA = cachedA ?? renderAllAngles(sceneA, sharedOffset, cameraDistance, cameraTarget);
+  const imageDataB = cachedB ?? renderAllAngles(sceneB, sharedOffset, cameraDistance, cameraTarget);
 
   if (!cachedA) renderCache.set(sceneA, imageDataA);
   if (!cachedB) renderCache.set(sceneB, imageDataB);
