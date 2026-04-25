@@ -69,20 +69,6 @@ src/
     └── useDiffResults.ts
 ```
 
-### Architecture changes from original spec and rationale
-
-**Removed `ghostOverlay.ts` from lib/.** The ghost overlay mode does not need a separate rendering pipeline. It is a scene setup variation: tint materials, set blending modes, render once using the standard Three.js render loop. Putting this in a standalone module implied offscreen compositing, which adds unnecessary overhead. The tinting logic lives in `GhostOverlayView.tsx` as a utility function instead.
-
-**Added `AllAnglesView.tsx`.** The mockups show an "all angles" button in the mode bar, making this an MVP feature, not a stretch goal. It displays a 2x3 grid of all 6 camera angles with pixel diff overlays and per-angle change percentages.
-
-**Added `LoadingOverlay.tsx`.** Large GLB files (up to 200MB) take several seconds to parse. The original spec had no loading state design, which leaves users staring at an empty canvas with no feedback.
-
-**Added `ErrorBoundary.tsx`.** WebGL context loss is common (GPU driver resets, tab backgrounding on mobile, memory pressure). Without recovery handling, users see a black canvas with no way forward.
-
-**Added `disposeModel.ts` as its own module.** The cleanup logic needs to handle `SkinnedMesh`, `InstancedMesh`, `Line`, `Points`, and other geometry-bearing subtypes beyond just `THREE.Mesh`. Putting it in its own file ensures consistent cleanup across all view modes.
-
-**Stats panel is a persistent sidebar, not a toggleable mode.** The mockups show the stats panel always visible on the right side across all view modes. This is the correct UX: structural data (vertex counts, material changes, bounding box deltas) provides useful context regardless of which visual mode is active.
-
 ## MVP features
 
 ### 1. Dual file upload
@@ -235,7 +221,7 @@ Single Three.js canvas with both models loaded into the same scene. Tint the ori
 
 Do not use `THREE.NormalBlending` on both models. That just draws one on top of the other and the "overlay" effect disappears wherever the green model occludes the red. Additive blending on the green layer is what produces the overlap tone where geometry coincides.
 
-Opacity is configurable (default 0.50, range 0.20 to 0.90 via slider). **Default changed from 0.65 to 0.50** because the original default combined with additive blending on the green model caused the green layer to visually dominate on bright materials. A 0.50 default provides more balanced perception regardless of material brightness. **Clone materials before tinting.** Mutating originals leaves the models tinted in every other view mode.
+Opacity is configurable (default 0.50, range 0.20 to 0.90 via slider). The 0.50 default is deliberate: at higher defaults (e.g. 0.65), additive blending on the green model causes the green layer to visually dominate on bright materials, biasing perception. 0.50 stays balanced regardless of material brightness. **Clone materials before tinting.** Mutating originals leaves the models tinted in every other view mode.
 
 ```typescript
 function tintScene(
@@ -263,7 +249,7 @@ function tintScene(
 
 Apply the same render normalization as pixel diff: center both models at world origin, use the larger bounding sphere to set camera distance. OrbitControls still active so reviewers can orbit the composite. Legend strip below the canvas: red swatch = "only in v1", green swatch = "only in v2", neutral swatch = "overlap (mixed tone)".
 
-**Legend wording change:** The original legend said "unchanged" for the neutral swatch, implying a single consistent neutral color. In practice, the visual result of additive blending on overlapping geometry depends on the original material colors and brightness. "Overlap (mixed tone)" is more accurate and avoids misleading users.
+**Legend wording is deliberate.** Do not label the neutral swatch "unchanged" — that implies a single consistent neutral color, but the actual visual result of additive blending over overlapping geometry depends on the underlying material colors and brightness. "Overlap (mixed tone)" accurately describes what users see.
 
 ### 5. Rendered pixel diff
 
@@ -271,7 +257,7 @@ Render both models from 6 camera angles (front, back, left, right, top, 3/4) int
 
 **Tolerance slider visibility:** The tolerance slider only appears when pixel diff or all angles mode is active. It is hidden during side-by-side, ghost overlay, and turntable modes where it has no effect. Showing it in irrelevant modes confuses users into thinking it controls something.
 
-**Multi-worker parallel diffing for responsive slider.** The original spec used a single Web Worker for all 6 angles. At 1024x1024 per angle, each comparison takes 50 to 100ms on mid-range hardware, totaling 300 to 600ms for all 6 angles. This makes the tolerance slider feel sluggish. Instead, spawn a pool of workers (one per angle, up to 6) so all comparisons run in parallel. The slider then completes in 50 to 100ms wall time instead of 300 to 600ms.
+**Multi-worker parallel diffing for responsive slider.** Do not run all 6 angles through a single Web Worker. At 1024x1024 per angle, each comparison takes 50 to 100ms on mid-range hardware, which would total 300 to 600ms sequentially and make the tolerance slider feel sluggish. Spawn a pool of workers (one per angle, up to 6) so all comparisons run in parallel. Wall time then drops to 50 to 100ms.
 
 ```typescript
 // Create a pool of workers, one per angle
@@ -448,7 +434,7 @@ npx diffglb uninstall-hook             # remove hook
 
 A reusable workflow file that teams drop into `.github/workflows/glb-diff.yml`. Triggers on any PR that touches `.glb` files. Runs diffglb headlessly via Playwright, uploads artifacts, and posts a bot comment to the PR.
 
-**Correct base comparison for PRs.** The original spec used `HEAD~1` with `fetch-depth: 2`, but this breaks for merge commits and squash merges where `HEAD~1` is not the PR base. Use the PR event's base and head SHAs instead, which correctly compare the PR branch to its target regardless of merge strategy:
+**Correct base comparison for PRs.** Do not use `HEAD~1` with `fetch-depth: 2`. That breaks on merge commits and squash merges where `HEAD~1` is not the PR base. Use the PR event's base and head SHAs (`github.event.pull_request.base.sha` and `github.sha`) with `fetch-depth: 0`, which correctly compares the PR branch to its target regardless of merge strategy:
 
 **`glb-diff.yml`:**
 
@@ -639,7 +625,7 @@ _Note: "Multi-angle gallery" was promoted from stretch goals to MVP as the "all 
 
 ## Critical implementation gotchas
 
-These are the things Claude Code will get wrong without explicit guidance:
+These are the things an AI coding agent (or a human in a hurry) will get wrong without explicit guidance. Every one of these has been observed as a silent failure in practice:
 
 1. **WebIO, not NodeIO.** gltf-transform's `NodeIO` uses Node.js `fs` and crashes in the browser. Use `WebIO` for all client-side parsing.
 2. **`preserveDrawingBuffer: true`** on the WebGLRenderer or `toDataURL()` / `getImageData()` returns blank.
@@ -659,26 +645,9 @@ These are the things Claude Code will get wrong without explicit guidance:
 
 ---
 
-## Team split (4 devs, 24 hours)
-
-| Role                                          | Owner         | Scope                                                                                                                                                                                                                     | Hours    |
-| --------------------------------------------- | ------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------- |
-| Three.js viewers + pixel diff + ghost overlay | Dev 1 + Dev 2 | ViewerPanel, SideBySideView, GhostOverlayView, AllAnglesView, renderer.ts, pixelDiff.ts, PixelDiffView, TurntableView, ErrorBoundary, camera sync toggle                                                                  | 0 to 18  |
-| Structural diff engine + CLI                  | Dev 3         | gltfParser.ts, structuralDiff.ts, CLI entrypoint, headless renderer, test pair generator script, batch commit handling                                                                                                    | 0 to 16  |
-| UI shell + integration + CI workflow          | Dev 4         | FileUpload, StatsPanel (persistent sidebar), DiffControls (conditional per mode), Header, Zustand store, layout, accessibility (colorblind toggle, aria labels, keyboard shortcuts), LoadingOverlay, glb-diff.yml, polish | 0 to 18  |
-| Demo prep + final polish                      | All           | Demo video, README, deploy to Vercel, bug fixes                                                                                                                                                                           | 20 to 24 |
-
-**Dev 3 should write a test pair generator script by hour 3.** Use gltf-transform to load any .glb, shift a node, change a material color, and save as a modified copy. The whole team needs controlled test pairs early. Also generate an identical pair (same file twice) to test the "no differences found" state.
-
-**Dev 3 should stub the CLI entrypoint by hour 6.** Even a no-op `npx diffglb --a x --b y` that opens the browser with both files pre-loaded unblocks Dev 4's CI work.
-
-**Dev 4 should implement the accessibility toggle early (by hour 8).** The colorblind-safe color scheme affects ghost overlay tinting, pixel diff highlights, and stats panel colors. Implementing the toggle early avoids retrofitting all three systems later.
-
----
-
 ## Test models
 
-Use Khronos glTF sample models (DamagedHelmet, BoxAnimated, etc.) from `https://github.com/KhronosGroup/glTF-Sample-Assets`. Modify them programmatically with the test pair generator to create controlled before/after pairs. Do not wait until hour 18 to test with real files.
+Use Khronos glTF sample models (DamagedHelmet, BoxAnimated, etc.) from `https://github.com/KhronosGroup/glTF-Sample-Assets`. Write a small script under `scripts/` that loads a sample .glb with gltf-transform, shifts a node or changes a material color, and saves a modified copy. Use this script to create controlled before/after pairs. Test against real files early; do not defer testing until integration.
 
 **Required test cases:**
 
@@ -691,17 +660,7 @@ Use Khronos glTF sample models (DamagedHelmet, BoxAnimated, etc.) from `https://
 
 ---
 
-## Demo script (2 to 3 min)
-
-Lead with the impact, not the workflow.
-
-1. **The problem (15 sec):** Show a GitHub diff page for a .glb file: "Binary files differ. No visual preview." Then show a Perforce changelist with a .fbx: same thing, just a filename and a timestamp. "This is what $39/user/month gets you."
-2. **The reveal (15 sec):** Cut to our tool with models already loaded, pixel diff already computed. Red highlights visible immediately. "Here's what we built."
-3. **Walkthrough (60 sec):** Upload flow, side-by-side orbit, unlock camera sync to inspect one side, toggle to ghost overlay (show the red/green composite: "this is a git diff, but for geometry"), toggle to pixel diff, adjust tolerance slider, walk through 2 to 3 angles.
-4. **Stats panel (20 sec):** Show vertex/material/bbox deltas in the persistent sidebar.
-5. **Git integration (20 sec):** Show the post-commit hook opening the viewer automatically after `git commit`. Show the GitHub Actions bot comment with diff images embedded in the PR.
-6. **All angles (10 sec):** Quick 2x3 grid overview with per-angle percentages.
-7. **Close (15 sec):** "Fully client-side, no upload to any server, works with any GLB file, and it fits directly into the workflow your team already uses."
+Demo script lives in [`DEMO.md`](./DEMO.md).
 
 ---
 
@@ -711,110 +670,3 @@ Vercel. Zero config for Next.js. No env vars needed for the web app.
 
 The GitHub App (Tier 3) requires a separate deployment with a server component. A lightweight Express or Next.js API route handler is sufficient. Needs `GITHUB_APP_ID`, `GITHUB_PRIVATE_KEY`, and `SESSION_SECRET` as env vars. Blob sessions can be stored in Redis (Upstash works on Vercel) with a 10-minute TTL.
 
----
-
-## Changelog (issues addressed)
-
-This section documents every issue identified during review and how it was resolved. Organized by category.
-
-### Fundamental design fixes
-
-**Camera sync lock/unlock toggle (side-by-side mode)**
-_Issue:_ OrbitControls binds to a single canvas, so both viewports always orbit together. Real review workflows need independent inspection of one model.
-_Fix:_ Added a lock/unlock toggle. When unlocked, only the viewport under the cursor orbits. When re-locked, cameras snap back to sync. Added keyboard shortcut (S key) for quick toggling. See section 3.
-
-**Worker buffer neutering on repeated slider use**
-_Issue:_ The pixel diff worker transfers its `diff.buffer` via postMessage. After transfer, the buffer is neutered. The original spec's code would silently fail on repeated tolerance slider adjustments if it tried to reuse the array.
-_Fix:_ Documented that each worker invocation allocates a fresh `Uint8ClampedArray`. Added this as gotcha #15. The worker code is correct as written (allocates fresh each time), but the spec now makes this explicit so developers do not "optimize" by caching the array.
-
-**ArrayBuffer sharing between parsers**
-_Issue:_ `modelLoader.ts` runs GLTFLoader and gltf-transform's WebIO "in parallel" on the same ArrayBuffer. If either parser neuters the buffer, the other gets an empty buffer.
-_Fix:_ Added `buffer.slice(0)` to clone the buffer before passing to the second parser. Added code example in section 1 and gotcha #11. Both parsers run on the main thread in this spec (WebIO is not in a worker), so the clone approach is straightforward.
-
-### Architecture fixes
-
-**Removed ghostOverlay.ts**
-_Issue:_ A standalone `ghostOverlay.ts` module in `lib/` implied a separate rendering pipeline with offscreen compositing, which is unnecessary overhead. Ghost overlay is just a scene setup variation.
-_Fix:_ Removed from the architecture. The tinting/blending logic lives as a utility function inside `GhostOverlayView.tsx`.
-
-**Stats panel made persistent**
-_Issue:_ The spec described the stats panel as a separate "structural diff" mode, but the mockups show it always visible as a right sidebar.
-_Fix:_ Updated the spec to match the mockups. The stats panel is a persistent sidebar, not a toggleable mode. Collapses to an icon on narrow screens.
-
-**WebGL context loss recovery**
-_Issue:_ No error boundary existed for WebGL crashes. Context loss from GPU driver issues, tab backgrounding, or memory pressure left users with a permanent black canvas.
-_Fix:_ Added `ErrorBoundary.tsx` component and `webglcontextlost`/`webglcontextrestored` handlers. Added gotcha #13. See section 2.
-
-### Spec vs. mockup alignment
-
-**All angles promoted to MVP**
-_Issue:_ The mockups show an "all angles" button in the mode bar, but the spec listed "multi-angle gallery" as a stretch goal.
-_Fix:_ Promoted to MVP as the fifth view mode. Added `AllAnglesView.tsx` to the architecture. Updated the mode count from four to five throughout the spec.
-
-**Tolerance slider conditional visibility**
-_Issue:_ The tolerance slider appeared in mockup headers across all modes, but tolerance only affects pixel diff and all angles modes. Showing it during side-by-side or ghost overlay is confusing.
-_Fix:_ Added a "conditional controls per mode" section that specifies exactly which controls appear in each mode.
-
-### Performance fixes
-
-**Multi-worker parallel diffing**
-_Issue:_ A single Web Worker for 6 angles takes 300 to 600ms total, making the tolerance slider feel sluggish. The spec promised "real time" slider response.
-_Fix:_ Changed to a pool of 6 workers (one per angle) that run in parallel, reducing wall time to 50 to 100ms. See section 5.
-
-**Dispose all mesh subtypes**
-_Issue:_ The cleanup function only checked `instanceof THREE.Mesh`, missing `SkinnedMesh`, `InstancedMesh`, `Line`, and `Points`. Game engine GLB exports commonly contain skinned meshes, causing GPU memory leaks.
-_Fix:_ Updated `disposeModel` to check for `.geometry` and `.material` properties on any `Object3D` descendant using property access instead of instanceof checks. Added gotcha #12.
-
-### Git integration fixes
-
-**New file handling in post-commit hook**
-_Issue:_ `git show HEAD~1:<path>` fails on the initial commit of a GLB file because there is no previous version. The hook would crash.
-_Fix:_ The hook now detects newly added files and skips them with a message. See Tier 1.
-
-**Batch commit protection**
-_Issue:_ The hook fires on every commit touching any GLB, including batch commits that modify dozens of files. Opening a browser tab for each is disruptive.
-_Fix:_ Added `--max-files` flag (default 3) and an interactive prompt when the count exceeds the limit. Added `--no-prompt` for scripted use.
-
-**PR base comparison in GitHub Actions**
-_Issue:_ The original workflow used `HEAD~1` with `fetch-depth: 2`, which breaks for merge commits and squash merges.
-_Fix:_ Changed to `github.event.pull_request.base.sha` / `github.sha` with `fetch-depth: 0`. Also separated modified files (`--diff-filter=M`) from newly added files (`--diff-filter=A`) since newly added files have no base version to diff against.
-
-### Missing features added
-
-**Accessibility (colorblind-safe mode)**
-_Issue:_ The red/green color scheme is unusable for ~8% of male users with color vision deficiency. No alternative was provided.
-_Fix:_ Added a colorblind-safe toggle using blue/orange instead of red/green. Persists via localStorage. See section 9.
-
-**Keyboard navigation**
-_Issue:_ No keyboard shortcuts were defined. Power users need quick mode switching.
-_Fix:_ Added number keys (1 through 5) for mode switching, S for camera sync toggle, arrow keys for stepping through angles in pixel diff mode. See section 8.
-
-**Identical file detection**
-_Issue:_ No defined behavior when both uploaded files are identical. Users would see an empty diff with no explanation.
-_Fix:_ Added "No differences found" state with a checkmark icon. See section 1.
-
-**Loading states**
-_Issue:_ A 200MB GLB takes several seconds to parse, but the mockups showed no loading indicator.
-_Fix:_ Added `LoadingOverlay.tsx` component and loading state descriptions throughout file upload and diff computation sections.
-
-**Screen reader support**
-_Issue:_ No accessibility labels on interactive controls.
-_Fix:_ Added `aria-label` requirements for all controls and `aria-live="polite"` for stats panel values. See section 9.
-
-### Small but important detail fixes
-
-**Ghost overlay default opacity changed from 0.65 to 0.50**
-_Issue:_ At 0.65 opacity with additive blending, the green (added) layer visually dominates on bright materials, creating a biased perception.
-_Fix:_ Default changed to 0.50 for more balanced visual weight regardless of material brightness.
-
-**Ghost overlay legend wording**
-_Issue:_ The legend said "unchanged" for the neutral swatch, implying a single consistent neutral color. The actual visual result of additive blending varies with material colors.
-_Fix:_ Changed to "overlap (mixed tone)" to accurately describe what users see.
-
-**Draco decoder version pinning note**
-_Issue:_ The pinned CDN URL could silently break when Three.js is upgraded, but the spec didn't mention this dependency.
-_Fix:_ Added explicit note about version compatibility and added gotcha #14.
-
-**Test case coverage**
-_Issue:_ No structured test cases were defined. Testing with only DamagedHelmet misses important edge cases.
-_Fix:_ Added a required test cases list including skinned meshes, identical files, large files, and pivot offset testing.
