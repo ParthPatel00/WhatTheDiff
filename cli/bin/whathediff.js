@@ -22,16 +22,6 @@ function isNoOpen() {
   return args.includes("--no-open");
 }
 
-// Local mode: no Supabase upload. Serves GLBs from a tiny HTTP server instead.
-// Auto-enabled when Supabase env vars are absent, or when --local flag is passed.
-function isLocalMode() {
-  return (
-    args.includes("--local") ||
-    !process.env.SUPABASE_PROJECT_ID ||
-    !process.env.SUPABASE_SERVICE_ROLE_KEY
-  );
-}
-
 async function main() {
   if (command === "install-hook") {
     await installHook({ silent: args.includes("--silent") });
@@ -51,8 +41,6 @@ async function main() {
       "  whathediff uninstall-hook                 Remove the hook",
       "",
       "Flags:",
-      "  --local           Serve files locally instead of uploading to Supabase",
-      "                    (auto-enabled when Supabase env vars are not set)",
       "  --no-open         Print the diff URL instead of launching the browser",
       "  --max-files <n>   Max diffs to open per commit without prompting (default: 3)",
       "  --no-prompt       Skip the batch prompt and open all changed files",
@@ -188,18 +176,10 @@ async function runHook() {
       const nameA = `${base}_before.glb`;
       const nameB = `${base}_after.glb`;
 
-      if (isLocalMode()) {
-        await serveAndOpen(
-          { data: Buffer.from(oldBuf), name: nameA },
-          { data: Buffer.from(newBuf), name: nameB },
-        );
-      } else {
-        const { uploadGlb } = require("../src/supabase.js");
-        const { urlA, urlB } = await uploadGlb(file.path, oldBuf, newBuf);
-        const viewerUrl = buildViewerUrl(urlA, urlB, nameA, nameB);
-        console.log(`[WhatTheDiff] Diff ready: ${viewerUrl}`);
-        if (!isNoOpen()) openBrowser(viewerUrl);
-      }
+      await serveAndOpen(
+        { data: Buffer.from(oldBuf), name: nameA },
+        { data: Buffer.from(newBuf), name: nameB },
+      );
     } catch (err) {
       console.error(`[WhatTheDiff] Error processing ${file.path}: ${err.message}`);
     }
@@ -212,26 +192,12 @@ async function openDiff(fileA, fileB) {
   if (!fs.existsSync(fileA)) { console.error(`[WhatTheDiff] File not found: ${fileA}`); process.exit(1); }
   if (!fs.existsSync(fileB)) { console.error(`[WhatTheDiff] File not found: ${fileB}`); process.exit(1); }
 
-  if (isLocalMode()) {
-    const nameA = path.basename(fileA);
-    const nameB = path.basename(fileB);
-    await serveAndOpen(
-      { data: fs.readFileSync(fileA), name: nameA },
-      { data: fs.readFileSync(fileB), name: nameB },
-    );
-    return;
-  }
-
-  const { uploadGlb } = require("../src/supabase.js");
-  console.log("[WhatTheDiff] Uploading...");
-  const rawA = fs.readFileSync(fileA);
-  const rawB = fs.readFileSync(fileB);
-  const bufA = rawA.buffer.slice(rawA.byteOffset, rawA.byteOffset + rawA.byteLength);
-  const bufB = rawB.buffer.slice(rawB.byteOffset, rawB.byteOffset + rawB.byteLength);
-  const { urlA, urlB, nameA, nameB } = await uploadGlb(path.basename(fileA), bufA, bufB);
-  const viewerUrl = buildViewerUrl(urlA, urlB, nameA, nameB);
-  console.log(`[WhatTheDiff] Diff ready: ${viewerUrl}`);
-  if (!isNoOpen()) openBrowser(viewerUrl);
+  const nameA = path.basename(fileA);
+  const nameB = path.basename(fileB);
+  await serveAndOpen(
+    { data: fs.readFileSync(fileA), name: nameA },
+    { data: fs.readFileSync(fileB), name: nameB },
+  );
 }
 
 // ── helpers ───────────────────────────────────────────────────────────────────
@@ -315,13 +281,6 @@ async function serveAndOpen(fileA, fileB) {
 
   // Keep alive until killed
   await new Promise(() => {});
-}
-
-function buildViewerUrl(urlA, urlB, nameA, nameB) {
-  const base =
-    process.env.WHATHEDIFF_VIEWER_URL ?? "https://what-the-diff.vercel.app";
-  const params = new URLSearchParams({ a: urlA, b: urlB, nameA, nameB });
-  return `${base}?${params.toString()}`;
 }
 
 function openBrowser(url) {

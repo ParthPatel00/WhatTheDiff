@@ -66,7 +66,7 @@ Then open `http://localhost:3000` and drop two `.glb` files.
 
 ## CLI — local git hook (Phase 5)
 
-After a `git commit` that touches `.glb` files, the hook automatically uploads both versions to Supabase and opens the diff viewer in your browser.
+After a `git commit` that touches `.glb` files, the hook automatically serves both versions from a local file server and opens the local diff viewer in your browser.
 
 **Install the hook** in any repo that contains `.glb` files:
 
@@ -86,7 +86,7 @@ node /path/to/WhatTheDiff/cli/bin/whathediff.js --a old.glb --b new.glb
 node /path/to/WhatTheDiff/cli/bin/whathediff.js uninstall-hook
 ```
 
-The CLI reads credentials from `.env` at the repo root (`SUPABASE_PROJECT_ID`, `SUPABASE_SERVICE_ROLE_KEY`, `SUPABASE_BUCKET_NAME`). Set `DIFFGLB_VIEWER_URL` to override the default viewer URL.
+The CLI uses `WHATHEDIFF_VIEWER_URL` from `.env` only to override the default viewer URL (`http://localhost:3000`).
 
 To install CLI dependencies:
 
@@ -101,6 +101,4 @@ Use Khronos glTF Sample Assets (https://github.com/KhronosGroup/glTF-Sample-Asse
 
 ## Deploy
 
-Vercel, zero config for the webapp (`vercel.json` is already configured with the required COEP/COOP headers for SharedArrayBuffer). Run `vercel` from the `frontend/` directory.
-
-GitHub App (Phase 7) needs its own server deploy; see `SPEC.md` § Deploy.
+No deployment integration is required for normal usage. Run the app locally from `frontend/` and use the CLI/hook against that local viewer.
