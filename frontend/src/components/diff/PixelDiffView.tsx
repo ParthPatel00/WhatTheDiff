@@ -80,7 +80,9 @@ export default function PixelDiffView({ initialAngle, onClose }: Props) {
     const offscreen = document.createElement("canvas");
     const renderer = new THREE.WebGLRenderer({ canvas: offscreen, antialias: true, preserveDrawingBuffer: true });
     const dpr = Math.min(window.devicePixelRatio, 2);
-    renderer.setPixelRatio(dpr);
+    renderer.setPixelRatio(1); // keep 1 — DPR applied manually to offscreen size
+    renderer.outputColorSpace = THREE.SRGBColorSpace;
+    renderer.toneMapping = THREE.LinearToneMapping;
     renderer.setClearColor(BG, 1);
 
     // Clones with shared offset (same as renderer.ts renderBothModels)
@@ -123,7 +125,7 @@ export default function PixelDiffView({ initialAngle, onClose }: Props) {
     const unionSphere = new THREE.Sphere();
     unionBox.getBoundingSphere(unionSphere);
     const fovRad = (FOV * Math.PI) / 180;
-    const cameraDistance = (unionSphere.radius / Math.tan(fovRad / 2)) * 1.2;
+    const cameraDistance = unionSphere.radius / Math.sin(fovRad / 2);
 
     function snapCamera(cam: THREE.PerspectiveCamera, ctrl: OrbitControls, angle: CameraAngle) {
       const preset = CAMERA_PRESETS[angle];

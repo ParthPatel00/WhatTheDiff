@@ -55,7 +55,10 @@ export default function FreeformPixelDiffView() {
       antialias: true,
       preserveDrawingBuffer: true,
     });
-    renderer.setPixelRatio(1);
+    const dpr = Math.min(window.devicePixelRatio, 2);
+    renderer.setPixelRatio(1); // keep 1 — DPR applied manually to offscreen size
+    renderer.outputColorSpace = THREE.SRGBColorSpace;
+    renderer.toneMapping = THREE.LinearToneMapping;
     renderer.setClearColor(0x3a3a3a, 1);
 
     // ── Scenes — clones floored at Y=0, centered on A's XZ ──────────────────
@@ -85,9 +88,9 @@ export default function FreeformPixelDiffView() {
     // ── Set initial size first so aspect ratio is correct before framing ──────
     const initW = canvas.clientWidth || 800;
     const initH = canvas.clientHeight || 600;
-    canvas.width = initW;
-    canvas.height = initH;
-    renderer.setSize(initW, initH, false);
+    canvas.width = Math.round(initW * dpr);
+    canvas.height = Math.round(initH * dpr);
+    renderer.setSize(Math.round(initW * dpr), Math.round(initH * dpr), false);
 
     // ── Camera + OrbitControls ────────────────────────────────────────────────
     const camera = new THREE.PerspectiveCamera(FOV, initW / initH, 0.01, 10000);
@@ -124,9 +127,9 @@ export default function FreeformPixelDiffView() {
       const w = canvas.clientWidth;
       const h = canvas.clientHeight;
       if (w === 0 || h === 0) return;
-      canvas.width = w;
-      canvas.height = h;
-      renderer.setSize(w, h, false);
+      canvas.width = Math.round(w * dpr);
+      canvas.height = Math.round(h * dpr);
+      renderer.setSize(Math.round(w * dpr), Math.round(h * dpr), false);
       camera.aspect = w / h;
       camera.updateProjectionMatrix();
       needsUpdateRef.current = true;
