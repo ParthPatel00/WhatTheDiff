@@ -7,6 +7,7 @@ import { useThreeViewer } from "@/hooks/useThreeViewer";
 import { applySceneLighting, frameCamerasToBoth } from "./ViewerPanel";
 import { WebGLContextLostOverlay } from "./ErrorBoundary";
 import { useDiffStore } from "@/stores/diffStore";
+import { createViewportGrid, disposeViewportGrid } from "@/lib/viewportGrid";
 
 const ROTATION_SPEED = 0.005; // radians per frame
 
@@ -25,6 +26,8 @@ export function TurntableView() {
   // Controls are used for OrbitControls damping/target but autoRotate drives the orbit
   const controlsARef = useRef<OrbitControls | null>(null);
   const controlsBRef = useRef<OrbitControls | null>(null);
+  const gridARef = useRef<THREE.Group | null>(null);
+  const gridBRef = useRef<THREE.Group | null>(null);
   const angleRef = useRef(0);
   const [contextLost, setContextLost] = useState(false);
   const [degrees, setDegrees] = useState(0);
@@ -81,6 +84,7 @@ export function TurntableView() {
 
     for (const scene of [sceneARef.current, sceneBRef.current]) {
       applySceneLighting(scene);
+      scene.background = new THREE.Color(0x3a3a3a);
     }
 
     cameraARef.current.position.set(0, 0, 5);
@@ -123,8 +127,11 @@ export function TurntableView() {
     const lights = scene.children.filter((c) => c instanceof THREE.Light);
     scene.clear();
     lights.forEach((l) => scene.add(l));
+    if (gridARef.current) { disposeViewportGrid(gridARef.current); gridARef.current = null; }
 
     if (!modelA) return;
+    const boxA = new THREE.Box3().setFromObject(modelA.scene);
+    if (!boxA.isEmpty()) modelA.scene.position.y = -boxA.min.y;
     scene.add(modelA.scene);
     frameCamerasToBoth(
       cameraARef.current,
@@ -133,7 +140,12 @@ export function TurntableView() {
       modelB?.scene ?? null,
       controlsARef.current ?? undefined
     );
-    return () => { scene.remove(modelA.scene); };
+
+    const grid = createViewportGrid();
+    gridARef.current = grid;
+    scene.add(grid);
+
+    return () => { modelA.scene.position.y = 0; scene.remove(modelA.scene); };
   }, [modelA]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
@@ -141,8 +153,11 @@ export function TurntableView() {
     const lights = scene.children.filter((c) => c instanceof THREE.Light);
     scene.clear();
     lights.forEach((l) => scene.add(l));
+    if (gridBRef.current) { disposeViewportGrid(gridBRef.current); gridBRef.current = null; }
 
     if (!modelB) return;
+    const boxB = new THREE.Box3().setFromObject(modelB.scene);
+    if (!boxB.isEmpty()) modelB.scene.position.y = -boxB.min.y;
     scene.add(modelB.scene);
     frameCamerasToBoth(
       cameraARef.current,
@@ -151,7 +166,12 @@ export function TurntableView() {
       modelB.scene,
       controlsARef.current ?? undefined
     );
-    return () => { scene.remove(modelB.scene); };
+
+    const grid = createViewportGrid();
+    gridBRef.current = grid;
+    scene.add(grid);
+
+    return () => { modelB.scene.position.y = 0; scene.remove(modelB.scene); };
   }, [modelB]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {

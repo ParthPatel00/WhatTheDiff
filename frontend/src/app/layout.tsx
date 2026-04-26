@@ -1,10 +1,10 @@
 import type { Metadata } from "next";
-import { Inter, JetBrains_Mono } from "next/font/google";
+import { IBM_Plex_Mono } from "next/font/google";
 import "./globals.css";
 
-const inter = Inter({ subsets: ["latin"], variable: "--font-sans" });
-const jetbrainsMono = JetBrains_Mono({
+const ibmPlexMono = IBM_Plex_Mono({
   subsets: ["latin"],
+  weight: ["400", "500"],
   variable: "--font-mono",
 });
 
@@ -19,8 +19,8 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className={`${inter.variable} ${jetbrainsMono.variable}`} style={{ background: "#1a1a1a" }}>
-      <body className="antialiased" style={{ background: "#1a1a1a" }}>{children}</body>
+    <html lang="en" className={ibmPlexMono.variable} style={{ background: "#111111" }}>
+      <body className="antialiased" style={{ background: "#111111" }}>{children}</body>
     </html>
   );
 }

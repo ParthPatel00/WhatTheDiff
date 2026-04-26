@@ -6,6 +6,7 @@ import { OrbitControls } from "three/addons/controls/OrbitControls.js";
 import { useDiffStore } from "@/stores/diffStore";
 import { frameCameraToObject } from "@/components/viewer/ViewerPanel";
 import { Slider } from "@/components/ui/slider";
+import { createViewportGrid, disposeViewportGrid } from "@/lib/viewportGrid";
 
 // ─── tintScene ───────────────────────────────────────────────────────────────
 //
@@ -16,38 +17,35 @@ import { Slider } from "@/components/ui/slider";
 // Call this on a `scene.clone(true)` copy — never on the original scene from
 // the store, which is shared with other view modes.
 
+// Replaces every mesh's material with a fresh flat-shaded MeshStandardMaterial
+// of the given color. No textures, no maps — solid opaque shape.
+// opacity/transparent are left at defaults (1.0, false) here; the crossfade
+// effect updates them reactively via the returned material refs.
 function tintScene(
   scene: THREE.Object3D,
   color: THREE.Color,
-  opacity: number,
-  additive: boolean,
   renderOrder: number
-): THREE.Material[] {
-  const cloned: THREE.Material[] = [];
+): THREE.MeshStandardMaterial[] {
+  const created: THREE.MeshStandardMaterial[] = [];
 
   scene.traverse((obj) => {
-    // Use .isMesh flag — covers Mesh, SkinnedMesh, InstancedMesh (all have isMesh = true).
     if (!(obj as THREE.Mesh).isMesh) return;
     const mesh = obj as THREE.Mesh;
+    const count = Array.isArray(mesh.material) ? mesh.material.length : 1;
 
-    const mats = Array.isArray(mesh.material) ? mesh.material : [mesh.material];
-    const newMats = mats.map((m: THREE.Material) => {
-      const c = m.clone();
-      if ("color" in c) (c as THREE.MeshStandardMaterial).color.set(color);
-      c.opacity = opacity;
-      c.transparent = true;
-      c.depthWrite = false;
-      if (additive) c.blending = THREE.AdditiveBlending;
-      c.needsUpdate = true;
-      cloned.push(c);
-      return c;
+    const mat = new THREE.MeshStandardMaterial({
+      color,
+      roughness: 0.8,
+      metalness: 0.0,
+      transparent: true,
+      depthWrite: false,
     });
-
-    mesh.material = Array.isArray(mesh.material) ? newMats : newMats[0];
+    created.push(mat);
+    mesh.material = count > 1 ? Array(count).fill(mat) : mat;
     mesh.renderOrder = renderOrder;
   });
 
-  return cloned;
+  return created;
 }
 
 // ─── render normalization ────────────────────────────────────────────────────
@@ -60,24 +58,27 @@ function tintScene(
 function normalizeAndFrame(
   cloneA: THREE.Object3D,
   cloneB: THREE.Object3D,
-  originalA: THREE.Object3D,
-  originalB: THREE.Object3D,
   camera: THREE.PerspectiveCamera,
   controls: OrbitControls
 ) {
-  // Compute centers from the originals (pre-clone positions are reliable).
-  const boxA = new THREE.Box3().setFromObject(originalA);
-  const boxB = new THREE.Box3().setFromObject(originalB);
+  // Use model A's bbox as the shared reference for both clones.
+  // Centering each model independently would offset B relative to A whenever
+  // a modification shifts B's bounding box center (e.g. an extruded part).
+  const boxA = new THREE.Box3().setFromObject(cloneA);
+  if (boxA.isEmpty()) return;
 
-  // Center all three axes so the model's geometric center sits at world origin.
-  if (!boxA.isEmpty()) {
-    const centerA = boxA.getCenter(new THREE.Vector3());
-    cloneA.position.sub(centerA);
-  }
-  if (!boxB.isEmpty()) {
-    const centerB = boxB.getCenter(new THREE.Vector3());
-    cloneB.position.sub(centerB);
-  }
+  const centerA = boxA.getCenter(new THREE.Vector3());
+  const sharedOffsetX = -centerA.x;
+  const sharedOffsetY = -boxA.min.y;
+  const sharedOffsetZ = -centerA.z;
+
+  cloneA.position.x += sharedOffsetX;
+  cloneA.position.y += sharedOffsetY;
+  cloneA.position.z += sharedOffsetZ;
+
+  cloneB.position.x += sharedOffsetX;
+  cloneB.position.y += sharedOffsetY;
+  cloneB.position.z += sharedOffsetZ;
 
   // Bounding spheres after centering — centers should now be near origin.
   const sphereA = new THREE.Sphere();
@@ -89,12 +90,16 @@ function normalizeAndFrame(
   const fov = camera.fov * (Math.PI / 180);
   const dist = (radius / Math.sin(fov / 2)) * 1.2;
 
-  // Position camera along +Z, looking at the scene center (origin after centering).
-  camera.position.set(0, 0, dist);
+  // With models floored at Y=0, the visual center is at half their height.
+  // Target the midpoint of the union bounding box so the model is well-framed.
+  const unionBox = new THREE.Box3().setFromObject(cloneA).union(new THREE.Box3().setFromObject(cloneB));
+  const target = unionBox.isEmpty() ? new THREE.Vector3(0, 0, 0) : unionBox.getCenter(new THREE.Vector3());
+
+  camera.position.set(target.x, target.y, target.z + dist);
   camera.near = dist / 100;
   camera.far = dist * 10;
   camera.updateProjectionMatrix();
-  controls.target.set(0, 0, 0);
+  controls.target.copy(target);
   controls.update();
 }
 
@@ -135,7 +140,9 @@ export function GhostOverlayView() {
   const sceneRef = useRef<THREE.Scene | null>(null);
   const cloneARef = useRef<THREE.Object3D | null>(null);
   const cloneBRef = useRef<THREE.Object3D | null>(null);
-  const tintedMatsRef = useRef<THREE.Material[]>([]);
+  const tintedMatsARef = useRef<THREE.MeshStandardMaterial[]>([]);
+  const tintedMatsBRef = useRef<THREE.MeshStandardMaterial[]>([]);
+  const gridRef = useRef<THREE.Group | null>(null);
   const frameIdRef = useRef<number>(0);
   const frameRunningRef = useRef(false);
 
@@ -148,7 +155,7 @@ export function GhostOverlayView() {
     // instance created here (safe under React StrictMode double-invoke).
     const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true });
     renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-    renderer.setClearColor(0x1e1e1e, 1);
+    renderer.setClearColor(0x3a3a3a, 1);
     renderer.setSize(canvas.clientWidth || 800, canvas.clientHeight || 600, false);
     rendererRef.current = renderer;
 
@@ -202,8 +209,11 @@ export function GhostOverlayView() {
       cancelAnimationFrame(frameIdRef.current);
       ro.disconnect();
       controls.dispose();
-      tintedMatsRef.current.forEach((m) => m.dispose());
-      tintedMatsRef.current = [];
+      tintedMatsARef.current.forEach((m) => m.dispose());
+      tintedMatsBRef.current.forEach((m) => m.dispose());
+      tintedMatsARef.current = [];
+      tintedMatsBRef.current = [];
+      if (gridRef.current) { disposeViewportGrid(gridRef.current); gridRef.current = null; }
       renderer.dispose();
       rendererRef.current = null;
     };
@@ -216,15 +226,16 @@ export function GhostOverlayView() {
     const controls = controlsRef.current;
     if (!modelA || !modelB || !scene || !camera || !controls) return;
 
-    // Remove old clones and dispose their materials.
+    // Remove old clones, grid, and dispose their materials.
     if (cloneARef.current) scene.remove(cloneARef.current);
     if (cloneBRef.current) scene.remove(cloneBRef.current);
-    tintedMatsRef.current.forEach((m) => m.dispose());
-    tintedMatsRef.current = [];
+    if (gridRef.current) { scene.remove(gridRef.current); disposeViewportGrid(gridRef.current); gridRef.current = null; }
+    tintedMatsARef.current.forEach((m) => m.dispose());
+    tintedMatsBRef.current.forEach((m) => m.dispose());
+    tintedMatsARef.current = [];
+    tintedMatsBRef.current = [];
 
-    // Clone scene hierarchies. clone(true) creates new Object3D/Mesh instances
-    // but shares geometry and material references — tintScene then replaces the
-    // material refs on the cloned meshes, leaving originals untouched.
+    // Clone scene hierarchies — tintScene replaces materials on the clones only.
     const cloneA = modelA.scene.clone(true);
     const cloneB = modelB.scene.clone(true);
 
@@ -236,14 +247,27 @@ export function GhostOverlayView() {
       ? new THREE.Color(255 / 255, 165 / 255, 0)          // orange
       : new THREE.Color(80 / 255, 220 / 255, 100 / 255);  // green
 
-    const matsA = tintScene(cloneA, colorA, opacity, false, 1);
-    const matsB = tintScene(cloneB, colorB, opacity, true, 2);
+    tintedMatsARef.current = tintScene(cloneA, colorA, 1);
+    tintedMatsBRef.current = tintScene(cloneB, colorB, 2);
 
-    tintedMatsRef.current = [...matsA, ...matsB];
+    // Apply initial crossfade from current blend value
+    const blend = useDiffStore.getState().opacity;
+    const opA = 1 - blend;
+    const opB = blend;
+    cloneA.visible = opA > 0;
+    cloneB.visible = opB > 0;
+    tintedMatsARef.current.forEach((m) => { m.opacity = opA; m.needsUpdate = true; });
+    tintedMatsBRef.current.forEach((m) => { m.opacity = opB; m.needsUpdate = true; });
+
     cloneARef.current = cloneA;
     cloneBRef.current = cloneB;
 
-    normalizeAndFrame(cloneA, cloneB, modelA.scene, modelB.scene, camera, controls);
+    normalizeAndFrame(cloneA, cloneB, camera, controls);
+
+    // Models are now floored at Y=0 by normalizeAndFrame, so grid sits at Y=0.
+    const grid = createViewportGrid();
+    gridRef.current = grid;
+    scene.add(grid);
 
     scene.add(cloneA, cloneB);
 
@@ -264,12 +288,18 @@ export function GhostOverlayView() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [modelA, modelB, colorblindMode]);
 
-  // ── opacity: update material refs without re-cloning ──
+  // ── crossfade: A fades out as blend → 1, B fades in ──
   useEffect(() => {
-    tintedMatsRef.current.forEach((m) => {
-      m.opacity = opacity;
-      m.needsUpdate = true;
-    });
+    const blend = opacity;
+    const opA = 1 - blend;
+    const opB = blend;
+
+    // Hide fully-transparent clones so they don't write to depth or occlude.
+    if (cloneARef.current) cloneARef.current.visible = opA > 0;
+    if (cloneBRef.current) cloneBRef.current.visible = opB > 0;
+
+    tintedMatsARef.current.forEach((m) => { m.opacity = opA; m.needsUpdate = true; });
+    tintedMatsBRef.current.forEach((m) => { m.opacity = opB; m.needsUpdate = true; });
   }, [opacity]);
 
   useEffect(() => {
@@ -303,22 +333,22 @@ export function GhostOverlayView() {
         gap: 24,
         flexWrap: "wrap",
       }}>
-        {/* Opacity slider */}
+        {/* Blend slider — 0 = only A, 1 = only B */}
         <div style={{ display: "flex", alignItems: "center", gap: 10, minWidth: 200 }}>
           <span style={{ fontFamily: "var(--font-mono)", fontSize: 10, color: "var(--text-muted)", flexShrink: 0 }}>
-            opacity
+            blend
           </span>
           <Slider
-            min={0.20}
-            max={0.90}
+            min={0}
+            max={1}
             step={0.01}
             value={[opacity]}
             onValueChange={(v) => setOpacity(Array.isArray(v) ? v[0] : v)}
-            aria-label="Ghost overlay opacity"
+            aria-label="Ghost overlay blend"
             style={{ flex: 1 }}
           />
-          <span style={{ fontFamily: "var(--font-mono)", fontSize: 10, color: "var(--text-dim)", width: 32, textAlign: "right" }}>
-            {Math.round(opacity * 100)}%
+          <span style={{ fontFamily: "var(--font-mono)", fontSize: 10, color: "var(--text-dim)", width: 40, textAlign: "right" }}>
+            {opacity < 0.05 ? "A only" : opacity > 0.95 ? "B only" : `${Math.round(opacity * 100)}%`}
           </span>
         </div>
 

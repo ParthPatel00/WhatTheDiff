@@ -7,6 +7,7 @@ import { useThreeViewer } from "@/hooks/useThreeViewer";
 import { applySceneLighting, frameCamerasToBoth } from "./ViewerPanel";
 import { WebGLContextLostOverlay } from "./ErrorBoundary";
 import { useDiffStore } from "@/stores/diffStore";
+import { createViewportGrid, disposeViewportGrid } from "@/lib/viewportGrid";
 
 export function SideBySideView() {
   const modelA = useDiffStore((s) => s.modelA);
@@ -24,6 +25,8 @@ export function SideBySideView() {
   const cameraBRef = useRef(new THREE.PerspectiveCamera(45, 1, 0.01, 10000));
   const controlsRef = useRef<OrbitControls | null>(null);
   const syncingRef = useRef(false);
+  const gridARef = useRef<THREE.Group | null>(null);
+  const gridBRef = useRef<THREE.Group | null>(null);
   const [contextLost, setContextLost] = useState(false);
 
   const { rendererRef } = useThreeViewer(
@@ -61,6 +64,7 @@ export function SideBySideView() {
 
     for (const scene of [sceneARef.current, sceneBRef.current]) {
       applySceneLighting(scene);
+      scene.background = new THREE.Color(0x3a3a3a);
     }
 
     cameraARef.current.position.set(0, 0, 5);
@@ -133,8 +137,12 @@ export function SideBySideView() {
     const lights = scene.children.filter((c) => c instanceof THREE.Light);
     scene.clear();
     lights.forEach((l) => scene.add(l));
+    if (gridARef.current) { disposeViewportGrid(gridARef.current); gridARef.current = null; }
 
     if (!modelA) return;
+    // Floor the model: shift so bbox.min.y = 0 (model sits on the grid)
+    const boxA = new THREE.Box3().setFromObject(modelA.scene);
+    if (!boxA.isEmpty()) modelA.scene.position.y = -boxA.min.y;
     scene.add(modelA.scene);
     frameCamerasToBoth(
       cameraARef.current,
@@ -144,7 +152,11 @@ export function SideBySideView() {
       controlsRef.current ?? undefined
     );
 
-    return () => { scene.remove(modelA.scene); };
+    const grid = createViewportGrid();
+    gridARef.current = grid;
+    scene.add(grid);
+
+    return () => { modelA.scene.position.y = 0; scene.remove(modelA.scene); };
   }, [modelA]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Load model B into sceneB; remove on unmount or model change
@@ -153,8 +165,11 @@ export function SideBySideView() {
     const lights = scene.children.filter((c) => c instanceof THREE.Light);
     scene.clear();
     lights.forEach((l) => scene.add(l));
+    if (gridBRef.current) { disposeViewportGrid(gridBRef.current); gridBRef.current = null; }
 
     if (!modelB) return;
+    const boxB = new THREE.Box3().setFromObject(modelB.scene);
+    if (!boxB.isEmpty()) modelB.scene.position.y = -boxB.min.y;
     scene.add(modelB.scene);
     frameCamerasToBoth(
       cameraARef.current,
@@ -164,7 +179,11 @@ export function SideBySideView() {
       controlsRef.current ?? undefined
     );
 
-    return () => { scene.remove(modelB.scene); };
+    const grid = createViewportGrid();
+    gridBRef.current = grid;
+    scene.add(grid);
+
+    return () => { modelB.scene.position.y = 0; scene.remove(modelB.scene); };
   }, [modelB]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Reset camera to initial framing
