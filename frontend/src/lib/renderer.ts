@@ -22,7 +22,7 @@ function getRenderer(): THREE.WebGLRenderer {
     });
     _renderer.setSize(RENDER_SIZE, RENDER_SIZE);
     _renderer.setPixelRatio(1);
-    _renderer.setClearColor(0x1a1a1a, 1);
+    _renderer.setClearColor(0x000000, 1);
   }
   return _renderer;
 }
@@ -79,7 +79,7 @@ function renderAllAngles(
   const renderer = getRenderer();
 
   const threeScene = new THREE.Scene();
-  threeScene.background = new THREE.Color(0x1a1a1a);
+  threeScene.background = new THREE.Color(0x000000);
 
   // Identical lighting for both models — critical for a fair pixel diff
   const ambient = new THREE.AmbientLight(0xffffff, 0.5);
