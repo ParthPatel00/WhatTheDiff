@@ -215,35 +215,35 @@ export function SideBySideView() {
     <div style={{ display: "flex", flexDirection: "column", flex: 1, minHeight: 0 }}>
       {/* Sub-header */}
       <div style={{ display: "flex", background: "var(--bg-surface)", borderBottom: "1px solid var(--border)", flexShrink: 0 }}>
-        <div style={{ flex: 1, padding: "8px 16px", borderRight: "1px solid var(--border)", display: "flex", alignItems: "center", gap: 10 }}>
-          <span style={{ fontFamily: "var(--font-mono)", fontSize: 10, color: "var(--text-dim)" }}>original</span>
+        <div style={{ flex: 1, padding: "0 16px", height: 30, borderRight: "1px solid var(--border)", display: "flex", alignItems: "center", gap: 8 }}>
+          <span style={{ fontFamily: "var(--font-sans)", fontSize: 9, fontWeight: 600, letterSpacing: 0.8, textTransform: "uppercase", color: "var(--text-dim)" }}>original</span>
           {fileNameA && (
-            <span style={{ fontFamily: "var(--font-mono)", fontSize: 12, color: "var(--text)" }}>{fileNameA}</span>
+            <span style={{ fontFamily: "var(--font-sans)", fontSize: 11, color: "var(--text-muted)" }}>{fileNameA}</span>
           )}
         </div>
-        <div style={{ flex: 1, padding: "8px 16px", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-            <span style={{ fontFamily: "var(--font-mono)", fontSize: 10, color: "var(--text-dim)" }}>modified</span>
+        <div style={{ flex: 1, padding: "0 16px", height: 30, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <span style={{ fontFamily: "var(--font-sans)", fontSize: 9, fontWeight: 600, letterSpacing: 0.8, textTransform: "uppercase", color: "var(--text-dim)" }}>modified</span>
             {fileNameB && (
-              <span style={{ fontFamily: "var(--font-mono)", fontSize: 12, color: "var(--text)" }}>{fileNameB}</span>
+              <span style={{ fontFamily: "var(--font-sans)", fontSize: 11, color: "var(--text-muted)" }}>{fileNameB}</span>
             )}
           </div>
           <button
             onClick={() => setCameraSynced(!cameraSynced)}
             aria-label={cameraSynced ? "Unlock camera sync" : "Lock camera sync"}
             style={{
-              fontFamily: "var(--font-mono)",
+              fontFamily: "var(--font-sans)",
               fontSize: 10,
-              color: cameraSynced ? "var(--accent)" : "var(--text-dim)",
-              background: cameraSynced ? "rgba(80, 220, 100, 0.1)" : "transparent",
-              border: `1px solid ${cameraSynced ? "rgba(80, 220, 100, 0.4)" : "var(--border)"}`,
+              color: cameraSynced ? "var(--accent)" : "var(--text-muted)",
+              background: cameraSynced ? "var(--accent-dim)" : "transparent",
+              border: `1px solid ${cameraSynced ? "var(--accent)" : "var(--border)"}`,
               padding: "3px 10px",
-              borderRadius: 4,
+              borderRadius: 2,
               cursor: "pointer",
               display: "flex",
               alignItems: "center",
               gap: 4,
-              transition: "all 0.15s ease",
+              transition: "all 0.12s ease",
             }}
           >
             <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">

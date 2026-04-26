@@ -39,25 +39,71 @@ function fmtPropValue(prop: string, val: unknown): string {
   return String(val);
 }
 
-// ─── layout primitives ───────────────────────────────────────────────────────
+// ─── UE5-style collapsible section header ────────────────────────────────────
 
-function SectionLabel({ children }: { children: React.ReactNode }) {
+function Section({ title, children, defaultOpen = true }: {
+  title: string;
+  children: React.ReactNode;
+  defaultOpen?: boolean;
+}) {
+  const [open, setOpen] = useState(defaultOpen);
   return (
-    <span style={{
-      gridColumn: "1 / -1",
-      color: "var(--text-dim)",
-      fontFamily: "var(--font-mono)",
-      fontSize: 10,
-      letterSpacing: 1.5,
-      textTransform: "uppercase",
-      marginTop: 10,
-      paddingTop: 8,
-      borderTop: "1px solid var(--border)",
-    }}>
-      {children}
-    </span>
+    <div style={{ gridColumn: "1 / -1" }}>
+      {/* Section header — matches UE5 Details panel section bars */}
+      <button
+        onClick={() => setOpen((v) => !v)}
+        style={{
+          display: "flex",
+          alignItems: "center",
+          gap: 6,
+          width: "100%",
+          padding: "0 10px",
+          height: 24,
+          background: "var(--bg-elevated)",
+          border: "none",
+          borderTop: "1px solid var(--border)",
+          borderBottom: open ? "1px solid var(--border)" : "none",
+          cursor: "pointer",
+          textAlign: "left",
+          marginTop: 4,
+        }}
+      >
+        {/* UE5-style collapse chevron */}
+        <svg
+          width="8" height="8" viewBox="0 0 8 8" fill="none"
+          style={{ transition: "transform 0.15s", transform: open ? "rotate(0deg)" : "rotate(-90deg)", flexShrink: 0 }}
+        >
+          <path d="M1 2.5L4 5.5L7 2.5" stroke="var(--text-muted)" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+        </svg>
+        <span style={{
+          fontFamily: "var(--font-sans)",
+          fontSize: 10,
+          fontWeight: 700,
+          color: "var(--text)",
+          letterSpacing: 0.6,
+          textTransform: "uppercase",
+          userSelect: "none",
+        }}>
+          {title}
+        </span>
+      </button>
+
+      {/* Section content */}
+      {open && (
+        <div style={{
+          display: "grid",
+          gridTemplateColumns: "1fr auto",
+          gap: "2px 10px",
+          padding: "6px 10px 8px",
+        }}>
+          {children}
+        </div>
+      )}
+    </div>
   );
 }
+
+// ─── Property row — label left, value right ───────────────────────────────────
 
 function Row({ label, value, sub, color, labelColor }: {
   label: string;
@@ -68,15 +114,31 @@ function Row({ label, value, sub, color, labelColor }: {
 }) {
   return (
     <>
-      <span style={{ color: labelColor ?? "var(--text-dim)", fontFamily: "var(--font-mono)", fontSize: 11 }}>
+      <span style={{
+        color: labelColor ?? "var(--text-muted)",
+        fontFamily: "var(--font-sans)",
+        fontSize: 11,
+        lineHeight: "22px",
+        paddingLeft: 8,
+      }}>
         {label}
       </span>
       <div style={{ textAlign: "right" }}>
-        <div style={{ color: color ?? "var(--text-muted)", fontFamily: "var(--font-mono)", fontSize: 11 }}>
+        <div style={{
+          color: color ?? "var(--text)",
+          fontFamily: "var(--font-mono)",
+          fontSize: 11,
+          lineHeight: "22px",
+        }}>
           {value}
         </div>
         {sub && (
-          <div style={{ color: "var(--text-dim)", fontFamily: "var(--font-mono)", fontSize: 9, marginTop: 1 }}>
+          <div style={{
+            color: "var(--text-muted)",
+            fontFamily: "var(--font-mono)",
+            fontSize: 9,
+            marginTop: 1,
+          }}>
             {sub}
           </div>
         )}
@@ -85,68 +147,48 @@ function Row({ label, value, sub, color, labelColor }: {
   );
 }
 
-// Geometry row: shows "from → to" when changed, just "n" when not
 function CountRow({ label, a, b, colorblind }: {
-  label: string;
-  a: number;
-  b: number;
-  colorblind: boolean;
+  label: string; a: number; b: number; colorblind: boolean;
 }) {
   const delta = b - a;
   const isChanged = delta !== 0;
   const value = isChanged ? `${fmt(a)} → ${fmt(b)}` : fmt(a);
   const sub = isChanged ? signStr(delta) : undefined;
-  const labelColor = isChanged ? "var(--text-muted)" : "var(--text-dim)";
-  const valueColor = isChanged ? signColor(delta, colorblind) : "var(--text-dim)";
+  const labelColor = isChanged ? "var(--text)" : "var(--text-muted)";
+  const valueColor = isChanged ? signColor(delta, colorblind) : "var(--text-muted)";
   return <Row label={label} value={value} sub={sub} color={valueColor} labelColor={labelColor} />;
 }
 
 // ─── sections ────────────────────────────────────────────────────────────────
 
-function GeometrySection({ a, b, result, colorblind }: {
-  a: StructuralData;
-  b: StructuralData;
-  result: StructuralDiffResult;
-  colorblind: boolean;
-}) {
-  void result; // deltas re-derived from a/b for display consistency
+function GeometrySection({ a, b, colorblind }: { a: StructuralData; b: StructuralData; colorblind: boolean }) {
   return (
-    <>
-      <SectionLabel>geometry</SectionLabel>
-      <CountRow label="vertices"  a={a.vertexCount}   b={b.vertexCount}   colorblind={colorblind} />
-      <CountRow label="triangles" a={a.triangleCount} b={b.triangleCount} colorblind={colorblind} />
-      <CountRow label="meshes"    a={a.meshCount}     b={b.meshCount}     colorblind={colorblind} />
-    </>
+    <Section title="Geometry">
+      <CountRow label="Vertices"  a={a.vertexCount}   b={b.vertexCount}   colorblind={colorblind} />
+      <CountRow label="Triangles" a={a.triangleCount} b={b.triangleCount} colorblind={colorblind} />
+      <CountRow label="Meshes"    a={a.meshCount}     b={b.meshCount}     colorblind={colorblind} />
+    </Section>
   );
 }
 
-function SceneSection({ a, b, colorblind }: {
-  a: StructuralData;
-  b: StructuralData;
-  colorblind: boolean;
-}) {
+function SceneSection({ a, b, colorblind }: { a: StructuralData; b: StructuralData; colorblind: boolean }) {
   return (
-    <>
-      <SectionLabel>scene</SectionLabel>
-      <CountRow label="nodes"      a={a.nodeCount}      b={b.nodeCount}      colorblind={colorblind} />
-      <CountRow label="animations" a={a.animationCount} b={b.animationCount} colorblind={colorblind} />
-      <CountRow label="materials"  a={a.materialCount}  b={b.materialCount}  colorblind={colorblind} />
-    </>
+    <Section title="Scene">
+      <CountRow label="Nodes"      a={a.nodeCount}      b={b.nodeCount}      colorblind={colorblind} />
+      <CountRow label="Animations" a={a.animationCount} b={b.animationCount} colorblind={colorblind} />
+      <CountRow label="Materials"  a={a.materialCount}  b={b.materialCount}  colorblind={colorblind} />
+    </Section>
   );
 }
 
-function BBoxSection({ result, colorblind }: {
-  result: StructuralDiffResult;
-  colorblind: boolean;
-}) {
+function BBoxSection({ result, colorblind }: { result: StructuralDiffResult; colorblind: boolean }) {
   const { a, b, delta } = result.boundingBox;
 
   if (a.isEmpty() && b.isEmpty()) {
     return (
-      <>
-        <SectionLabel>bounding box</SectionLabel>
+      <Section title="Bounding Box">
         <Row label="n/a" value="—" />
-      </>
+      </Section>
     );
   }
 
@@ -163,19 +205,15 @@ function BBoxSection({ result, colorblind }: {
   }
 
   return (
-    <>
-      <SectionLabel>bounding box (units)</SectionLabel>
-      {dim("width (x)",  sA?.x ?? null, sB?.x ?? null, delta.x)}
-      {dim("height (y)", sA?.y ?? null, sB?.y ?? null, delta.y)}
-      {dim("depth (z)",  sA?.z ?? null, sB?.z ?? null, delta.z)}
-    </>
+    <Section title="Bounding Box">
+      {dim("Width (X)",  sA?.x ?? null, sB?.x ?? null, delta.x)}
+      {dim("Height (Y)", sA?.y ?? null, sB?.y ?? null, delta.y)}
+      {dim("Depth (Z)",  sA?.z ?? null, sB?.z ?? null, delta.z)}
+    </Section>
   );
 }
 
-function MaterialsSection({ result, colorblind }: {
-  result: StructuralDiffResult;
-  colorblind: boolean;
-}) {
+function MaterialsSection({ result, colorblind }: { result: StructuralDiffResult; colorblind: boolean }) {
   const addColor = colorblind ? "var(--blue)"   : "var(--green)";
   const remColor = colorblind ? "var(--orange)" : "var(--red)";
   const noChanges =
@@ -184,17 +222,16 @@ function MaterialsSection({ result, colorblind }: {
     result.materialsModified.length === 0;
 
   return (
-    <>
-      <SectionLabel>materials</SectionLabel>
+    <Section title="Materials">
       {noChanges ? (
-        <Row label="no changes" value="—" />
+        <Row label="No changes" value="—" />
       ) : (
         <>
           {result.materialsAdded.map((name) => (
             <span key={`a-${name}`} style={{
               gridColumn: "1 / -1",
               fontFamily: "var(--font-mono)", fontSize: 10,
-              color: addColor, paddingLeft: 4,
+              color: addColor, paddingLeft: 8,
             }}>
               + {name}
             </span>
@@ -203,7 +240,7 @@ function MaterialsSection({ result, colorblind }: {
             <span key={`r-${name}`} style={{
               gridColumn: "1 / -1",
               fontFamily: "var(--font-mono)", fontSize: 10,
-              color: remColor, paddingLeft: 4,
+              color: remColor, paddingLeft: 8,
             }}>
               − {name}
             </span>
@@ -213,7 +250,7 @@ function MaterialsSection({ result, colorblind }: {
           ))}
         </>
       )}
-    </>
+    </Section>
   );
 }
 
@@ -225,22 +262,27 @@ function MaterialDetail({ mat }: { mat: MaterialDiff }) {
         onClick={() => setOpen((v) => !v)}
         style={{
           gridColumn: "1 / -1",
-          fontFamily: "var(--font-mono)", fontSize: 10,
-          color: "var(--yellow)", paddingLeft: 4,
+          fontFamily: "var(--font-sans)", fontSize: 11,
+          color: "var(--yellow)", paddingLeft: 8,
           cursor: "pointer", userSelect: "none",
+          display: "flex", alignItems: "center", gap: 5,
         }}
       >
-        {open ? "▾" : "▸"} ~ {mat.name}
-        <span style={{ color: "var(--text-dim)", marginLeft: 6 }}>
-          ({mat.changes.length} change{mat.changes.length !== 1 ? "s" : ""})
+        <svg width="7" height="7" viewBox="0 0 8 8" fill="none"
+          style={{ transform: open ? "rotate(0)" : "rotate(-90deg)", flexShrink: 0 }}>
+          <path d="M1 2.5L4 5.5L7 2.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+        </svg>
+        ~ {mat.name}
+        <span style={{ color: "var(--text-dim)", marginLeft: 4, fontSize: 10 }}>
+          ({mat.changes.length})
         </span>
       </span>
       {open && mat.changes.map((c, i) => (
         <span key={i} style={{
           gridColumn: "1 / -1",
           fontFamily: "var(--font-mono)", fontSize: 9,
-          color: "var(--text-muted)", paddingLeft: 16,
-          lineHeight: 1.6,
+          color: "var(--text-muted)", paddingLeft: 20,
+          lineHeight: 1.7,
         }}>
           {c.property}: {fmtPropValue(c.property, c.before)} → {fmtPropValue(c.property, c.after)}
         </span>
@@ -258,10 +300,9 @@ function VisualDiffSection({ colorblind }: { colorblind: boolean }) {
 
   if (diffResults.length === 0) {
     return (
-      <>
-        <SectionLabel>visual diff (6 angles)</SectionLabel>
-        <Row label="computing…" value="—" />
-      </>
+      <Section title="Visual Diff">
+        <Row label="Computing…" value="—" />
+      </Section>
     );
   }
 
@@ -276,27 +317,23 @@ function VisualDiffSection({ colorblind }: { colorblind: boolean }) {
   };
 
   return (
-    <>
-      <SectionLabel>visual diff (6 angles)</SectionLabel>
+    <Section title="Visual Diff">
       {allZero ? (
-        <Row label="no visual changes" value="—" color="var(--text-muted)" />
+        <Row label="No visual changes" value="—" color="var(--text-muted)" />
       ) : (
         <>
-          <Row label="avg change" value={`${avg.toFixed(1)}%`} color={pctColor(avg)} />
-          <Row label={`max (${max.angle})`} value={`${max.pct.toFixed(1)}%`} color={pctColor(max.pct)} />
+          <Row label="Avg change" value={`${avg.toFixed(1)}%`} color={pctColor(avg)} />
+          <Row label={`Max (${max.angle})`} value={`${max.pct.toFixed(1)}%`} color={pctColor(max.pct)} />
         </>
       )}
-    </>
+    </Section>
   );
 }
 
 // ─── panel shell ─────────────────────────────────────────────────────────────
 
 function PanelContent({
-  result,
-  dataA,
-  dataB,
-  colorblind,
+  result, dataA, dataB, colorblind,
 }: {
   result: StructuralDiffResult;
   dataA: StructuralData;
@@ -304,18 +341,9 @@ function PanelContent({
   colorblind: boolean;
 }) {
   return (
-    <div
-      aria-live="polite"
-      aria-atomic="false"
-      style={{
-        display: "grid",
-        gridTemplateColumns: "1fr auto",
-        gap: "3px 12px",
-        padding: "12px 16px",
-      }}
-    >
+    <div aria-live="polite" aria-atomic="false">
       <VisualDiffSection colorblind={colorblind} />
-      <GeometrySection a={dataA} b={dataB} result={result} colorblind={colorblind} />
+      <GeometrySection a={dataA} b={dataB} colorblind={colorblind} />
       <SceneSection a={dataA} b={dataB} colorblind={colorblind} />
       <BBoxSection result={result} colorblind={colorblind} />
       <MaterialsSection result={result} colorblind={colorblind} />
@@ -356,22 +384,27 @@ export function StatsPanel() {
         role="complementary"
         aria-label="Structural diff stats"
         style={{
-          width: 48, display: "flex", flexDirection: "column",
-          alignItems: "center", paddingTop: 12,
-          background: "var(--bg-surface)", borderLeft: "1px solid var(--border)",
+          width: 36,
+          display: "flex",
+          flexDirection: "column",
+          alignItems: "center",
+          paddingTop: 6,
+          background: "var(--bg-surface)",
+          borderLeft: "1px solid var(--border)",
           flexShrink: 0,
         }}
       >
         <button
           onClick={() => { setUserCollapsed(false); setAutoCollapsed(false); }}
           aria-label="Expand stats panel"
+          title="Expand Details"
           style={{
             background: "none", border: "none", cursor: "pointer",
-            color: "var(--text-muted)", padding: 8, borderRadius: 4,
+            color: "var(--text-muted)", padding: 8, borderRadius: 2,
             display: "flex", alignItems: "center", justifyContent: "center",
           }}
         >
-          <PanelRight size={16} />
+          <PanelRight size={14} />
         </button>
       </aside>
     );
@@ -382,44 +415,65 @@ export function StatsPanel() {
       role="complementary"
       aria-label="Structural diff stats"
       style={{
-        width: 280, background: "var(--bg-surface)",
+        width: 260,
+        background: "var(--bg-surface)",
         borderLeft: "1px solid var(--border)",
-        display: "flex", flexDirection: "column",
-        flexShrink: 0, overflowY: "auto",
+        display: "flex",
+        flexDirection: "column",
+        flexShrink: 0,
+        overflowY: "auto",
       }}
     >
+      {/* Panel title bar — UE5 Details panel style */}
       <div style={{
-        display: "flex", alignItems: "center", justifyContent: "space-between",
-        padding: "10px 16px", borderBottom: "1px solid var(--border)",
-        position: "sticky", top: 0, background: "var(--bg-surface)", zIndex: 1,
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "space-between",
+        padding: "0 10px 0 12px",
+        height: 30,
+        borderBottom: "1px solid var(--border)",
+        position: "sticky",
+        top: 0,
+        background: "var(--bg-elevated)",
+        zIndex: 1,
+        flexShrink: 0,
       }}>
         <span style={{
-          fontFamily: "var(--font-mono)", fontSize: 10,
-          letterSpacing: 1, textTransform: "uppercase", color: "var(--text-muted)",
+          fontFamily: "var(--font-sans)",
+          fontSize: 10,
+          fontWeight: 700,
+          letterSpacing: 0.5,
+          textTransform: "uppercase",
+          color: "var(--text-muted)",
+          userSelect: "none",
         }}>
-          diff stats
+          Details
         </span>
         <button
           onClick={() => setUserCollapsed(true)}
           aria-label="Collapse stats panel"
+          title="Collapse"
           style={{
             background: "none", border: "none", cursor: "pointer",
-            color: "var(--text-dim)", padding: 4, borderRadius: 4,
+            color: "var(--text-dim)", padding: 4, borderRadius: 2,
             display: "flex", alignItems: "center",
+            transition: "color 0.1s",
           }}
+          onMouseEnter={(e) => { e.currentTarget.style.color = "var(--text-muted)"; }}
+          onMouseLeave={(e) => { e.currentTarget.style.color = "var(--text-dim)"; }}
         >
-          <PanelRight size={14} />
+          <PanelRight size={13} />
         </button>
       </div>
 
       {!result || !modelA || !modelB ? (
         <p style={{
-          fontFamily: "var(--font-mono)", fontSize: 11, color: "var(--text-dim)",
-          padding: 16, lineHeight: 1.6,
+          fontFamily: "var(--font-sans)", fontSize: 11, color: "var(--text-dim)",
+          padding: "16px 12px", lineHeight: 1.6,
         }}>
           {modelA || modelB
-            ? "Upload both models to see structural differences."
-            : "Upload two models to see structural differences."}
+            ? "Upload both models to see diff."
+            : "Upload two models to compare."}
         </p>
       ) : (
         <PanelContent

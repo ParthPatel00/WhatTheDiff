@@ -4,32 +4,37 @@
 
 :root {
   --font-mono: 'IBM Plex Mono', 'SF Mono', monospace;
-  --font-sans: var(--font-mono);
+  --font-sans: 'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, Arial, sans-serif;
 
-  /* Design tokens */
-  --bg: #111111;
-  --bg-surface: #1c1c1c;
-  --bg-elevated: #262626;
-  --bg-canvas: #141414;
+  /* ── Backgrounds ─────────────────────────────────────────────────────── */
+  --bg:          #1a1a1a;   /* main app bg                   */
+  --bg-surface:  #222222;   /* panels, sidebars              */
+  --bg-elevated: #2c2c2c;   /* popovers, dropdowns, tooltips */
+  --bg-canvas:   #1d1d1d;   /* 3D canvas backing             */
+  --bg-header:   #141414;   /* top title bar (darkest)       */
+  --bg-toolbar:  #1e1e1e;   /* secondary toolbar row         */
 
-  /* Borders & focus */
-  --border: #2e2e2e;
-  --border-focus: #484848;
+  /* ── Borders ─────────────────────────────────────────────────────────── */
+  --border:       #363636;
+  --border-focus: #5a5a5a;
 
-  /* Text colors */
-  --text: #d8d8d8;
-  --text-muted: #909090;
-  --text-dim: #5a5a5a;
+  /* ── Text ────────────────────────────────────────────────────────────── */
+  --text:       #cccccc;
+  --text-muted: #888888;
+  --text-dim:   #525252;
 
-  /* Semantic colors */
-  --red: #e85545;
-  --red-muted: #cc4a3c;
-  --green: #50dc64;
-  --green-muted: #44b854;
-  --yellow: #e8c840;
-  --blue: #5082ff;
-  --orange: #ffa500;
-  --accent: #50dc64;
+  /* ── Semantic colors ─────────────────────────────────────────────────── */
+  --red:        #e85555;
+  --red-muted:  #cc4a3c;
+  --green:      #50dc64;
+  --green-muted:#44b854;
+  --yellow:     #e8c840;
+  --blue:       #5082ff;
+  --orange:     #e8963c;
+
+  /* ── Accent — UE5 blue ───────────────────────────────────────────────── */
+  --accent:     #1878cc;
+  --accent-dim: rgba(24, 120, 204, 0.18);
 }
 
 * {
@@ -43,18 +48,22 @@ body {
   height: 100%;
   background: var(--bg);
   color: var(--text);
-  font-family: var(--font-mono);
+  font-family: var(--font-sans);
+  font-size: 12px;
 }
 
-/* Scrollbar styling */
+/* ── Scrollbar ────────────────────────────────────────────────────────── */
 ::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
+  width: 5px;
+  height: 5px;
 }
 ::-webkit-scrollbar-track {
   background: var(--bg);
 }
 ::-webkit-scrollbar-thumb {
-  background: var(--border);
-  border-radius: 3px;
+  background: #3a3a3a;
+  border-radius: 0;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #4a4a4a;
 }

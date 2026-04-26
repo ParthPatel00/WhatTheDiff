@@ -88,7 +88,7 @@ function LegendSwatch({ color, label }: { color: string; label: string }) {
         background: color,
         flexShrink: 0,
       }} />
-      <span style={{ color: "var(--text-dim)", fontFamily: "var(--font-mono)", fontSize: 10 }}>
+      <span style={{ color: "var(--text-dim)", fontFamily: "var(--font-sans)", fontSize: 10 }}>
         {label}
       </span>
     </span>
@@ -301,16 +301,16 @@ export function GhostOverlayView() {
         display: "flex",
         alignItems: "center",
         justifyContent: "space-between",
-        padding: "10px 16px",
+        padding: "8px 16px",
         borderTop: "1px solid var(--border)",
-        background: "var(--bg-surface)",
+        background: "var(--bg-toolbar)",
         gap: 24,
         flexWrap: "wrap",
       }}>
         {/* Blend slider — 0 = only A, 1 = only B */}
         <div style={{ display: "flex", alignItems: "center", gap: 10, minWidth: 200 }}>
-          <span style={{ fontFamily: "var(--font-mono)", fontSize: 10, color: "var(--text-muted)", flexShrink: 0 }}>
-            blend
+          <span style={{ fontFamily: "var(--font-sans)", fontSize: 10, fontWeight: 600, letterSpacing: 0.6, textTransform: "uppercase", color: "var(--text-muted)", flexShrink: 0 }}>
+            Blend
           </span>
           <Slider
             min={0}
@@ -321,7 +321,7 @@ export function GhostOverlayView() {
             aria-label="Ghost overlay blend"
             style={{ flex: 1 }}
           />
-          <span style={{ fontFamily: "var(--font-mono)", fontSize: 10, color: "var(--text-dim)", width: 40, textAlign: "right" }}>
+          <span style={{ fontFamily: "var(--font-mono)", fontSize: 10, color: "var(--text-muted)", width: 48, textAlign: "right" }}>
             {opacity < 0.05 ? "A only" : opacity > 0.95 ? "B only" : `${Math.round(opacity * 100)}%`}
           </span>
         </div>

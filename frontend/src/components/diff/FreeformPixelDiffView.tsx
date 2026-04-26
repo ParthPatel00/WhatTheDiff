@@ -226,11 +226,15 @@ export default function FreeformPixelDiffView() {
     <div style={{ display: "flex", flexDirection: "column", width: "100%", height: "100%" }}>
       {/* Badge bar */}
       <div style={{
-        display: "flex", alignItems: "center", justifyContent: "flex-end",
-        padding: "6px 16px", background: "var(--bg-surface)",
+        display: "flex", alignItems: "center", justifyContent: "space-between",
+        padding: "0 16px", height: 34,
+        background: "var(--bg-toolbar)",
         borderBottom: "1px solid var(--border)", flexShrink: 0,
       }}>
-        <span style={{ fontFamily: "var(--font-mono)", fontSize: 12, color: pctColor, fontWeight: 600 }}>
+        <span style={{ fontFamily: "var(--font-sans)", fontSize: 10, fontWeight: 600, letterSpacing: 0.6, textTransform: "uppercase", color: "var(--text-dim)" }}>
+          Pixel Diff
+        </span>
+        <span style={{ fontFamily: "var(--font-mono)", fontSize: 11, color: pctColor, fontWeight: 600 }}>
           {pct !== null ? `${pct.toFixed(1)}% changed` : "—"}
         </span>
       </div>

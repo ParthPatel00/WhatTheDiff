@@ -78,28 +78,75 @@ function DropZone({ side }: DropZoneProps) {
     maxSize: MAX_SIZE_BYTES,
   });
 
-  const label = isA ? "drop original .glb" : "drop modified .glb";
+  const tag = isA ? "Version A" : "Version B";
   const isActive = isDragActive || loading;
 
   return (
-    <div style={{ flex: 1 }}>
+    <div style={{ flex: 1, display: "flex", flexDirection: "column" }}>
+
+      {/* UE5-style panel header */}
+      <div style={{
+        height: 26,
+        background: "var(--bg-elevated)",
+        borderRadius: "2px 2px 0 0",
+        border: "1px solid var(--border)",
+        borderBottom: "none",
+        display: "flex",
+        alignItems: "center",
+        padding: "0 10px",
+        gap: 6,
+        flexShrink: 0,
+      }}>
+        <div style={{
+          width: 8, height: 8, borderRadius: 1,
+          background: isA ? "var(--accent)" : "var(--orange)",
+          flexShrink: 0,
+        }} />
+        <span style={{
+          fontFamily: "var(--font-sans)",
+          fontSize: 10,
+          fontWeight: 600,
+          color: "var(--text-muted)",
+          letterSpacing: 0.3,
+          textTransform: "uppercase",
+          userSelect: "none",
+        }}>
+          {tag}
+        </span>
+        {model && (
+          <span style={{
+            marginLeft: "auto",
+            fontFamily: "var(--font-mono)",
+            fontSize: 9,
+            color: "var(--text-dim)",
+          }}>
+            {isA ? store.fileNameA : store.fileNameB}
+          </span>
+        )}
+      </div>
+
+      {/* Drop area */}
       <div
         {...getRootProps()}
         aria-label={`Upload ${isA ? "original" : "modified"} model`}
         style={{
           flex: 1,
-          border: `2px dashed ${isActive ? "var(--accent)" : model ? "var(--border-focus)" : "var(--border)"}`,
-          borderRadius: 8,
+          border: `1px solid ${isActive ? "var(--accent)" : model ? "var(--border-focus)" : "var(--border)"}`,
+          borderRadius: "0 0 2px 2px",
           display: "flex",
           flexDirection: "column",
           alignItems: "center",
           justifyContent: "center",
-          gap: 12,
-          padding: 32,
+          gap: 10,
+          padding: 28,
           cursor: "pointer",
-          background: isActive ? "rgba(80, 220, 100, 0.05)" : model ? "rgba(80, 220, 100, 0.03)" : "transparent",
-          transition: "all 0.2s ease",
-          minHeight: 280,
+          background: isActive
+            ? "var(--accent-dim)"
+            : model
+            ? "rgba(24,120,204,0.04)"
+            : "var(--bg-canvas)",
+          transition: "border-color 0.15s, background 0.15s",
+          minHeight: 240,
           position: "relative",
         }}
       >
@@ -110,14 +157,14 @@ function DropZone({ side }: DropZoneProps) {
         ) : model ? (
           <LoadedState isA={isA} />
         ) : (
-          <EmptyState label={label} isActive={isDragActive} />
+          <EmptyState isActive={isDragActive} />
         )}
       </div>
 
       {error && (
         <p style={{
-          marginTop: 8,
-          fontFamily: "var(--font-mono)",
+          marginTop: 6,
+          fontFamily: "var(--font-sans)",
           fontSize: 10,
           color: "var(--red)",
           textAlign: "center",
@@ -129,23 +176,32 @@ function DropZone({ side }: DropZoneProps) {
   );
 }
 
-function EmptyState({ label, isActive }: { label: string; isActive: boolean }) {
+function EmptyState({ isActive }: { isActive: boolean }) {
   return (
     <>
-      <svg width="48" height="48" viewBox="0 0 24 24" fill="none"
-        stroke={isActive ? "var(--accent)" : "var(--text-dim)"} strokeWidth="1.5">
+      {/* UE5-style import icon — simplified cube/mesh shape */}
+      <svg width="36" height="36" viewBox="0 0 24 24" fill="none"
+        stroke={isActive ? "var(--accent)" : "var(--text-dim)"} strokeWidth="1.2"
+        style={{ opacity: isActive ? 1 : 0.6 }}>
         <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M17 8l-5-5-5 5M12 3v12" />
       </svg>
-      <div style={{
-        fontFamily: "var(--font-mono)",
-        fontSize: 13,
-        color: isActive ? "var(--accent)" : "var(--text-muted)",
-        letterSpacing: 0.3,
-      }}>
-        {label}
-      </div>
-      <div style={{ fontFamily: "var(--font-mono)", fontSize: 10, color: "var(--text-dim)" }}>
-        .glb only · max 200 MB
+      <div style={{ textAlign: "center" }}>
+        <div style={{
+          fontFamily: "var(--font-sans)",
+          fontSize: 12,
+          fontWeight: 500,
+          color: isActive ? "var(--accent)" : "var(--text-muted)",
+          marginBottom: 4,
+        }}>
+          {isActive ? "Release to load" : "Drop .glb file here"}
+        </div>
+        <div style={{
+          fontFamily: "var(--font-sans)",
+          fontSize: 10,
+          color: "var(--text-dim)",
+        }}>
+          or click to browse · max 200 MB
+        </div>
       </div>
     </>
   );
@@ -156,21 +212,23 @@ function LoadingState({ name, size }: { name: string; size: number }) {
   return (
     <>
       <div style={{
-        width: 24,
-        height: 24,
-        border: "2px solid var(--text-dim)",
+        width: 20,
+        height: 20,
+        border: "2px solid var(--border)",
         borderTopColor: "var(--accent)",
         borderRadius: "50%",
-        animation: "spin 0.8s linear infinite",
+        animation: "spin 0.7s linear infinite",
       }} />
-      <div style={{ fontFamily: "var(--font-mono)", fontSize: 11, color: "var(--text)", textAlign: "center" }}>
-        {name}
-      </div>
-      {sizeMB && (
-        <div style={{ fontFamily: "var(--font-mono)", fontSize: 10, color: "var(--text-dim)" }}>
-          {sizeMB} · parsing geometry...
+      <div style={{ textAlign: "center" }}>
+        <div style={{ fontFamily: "var(--font-sans)", fontSize: 11, color: "var(--text)", marginBottom: 3 }}>
+          {name}
         </div>
-      )}
+        {sizeMB && (
+          <div style={{ fontFamily: "var(--font-sans)", fontSize: 10, color: "var(--text-dim)" }}>
+            {sizeMB} · parsing…
+          </div>
+        )}
+      </div>
       <style>{`@keyframes spin { to { transform: rotate(360deg) } }`}</style>
     </>
   );
@@ -183,37 +241,37 @@ function LoadedState({ isA }: { isA: boolean }) {
 
   return (
     <>
+      {/* Check icon — UE5 style tick in a square */}
       <div style={{
-        width: 40,
-        height: 40,
-        borderRadius: "50%",
-        background: "rgba(80, 220, 100, 0.1)",
-        border: "2px solid rgba(80, 220, 100, 0.4)",
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "center",
+        width: 32, height: 32, borderRadius: 2,
+        background: "var(--accent-dim)",
+        border: "1px solid var(--accent)",
+        display: "flex", alignItems: "center", justifyContent: "center",
       }}>
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" strokeWidth="2.5">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" strokeWidth="2.5">
           <polyline points="20 6 9 17 4 12" />
         </svg>
       </div>
-      <div style={{ fontFamily: "var(--font-mono)", fontSize: 11, color: "var(--accent)" }}>
-        parsed
-      </div>
-      {vertexCount !== undefined && (
-        <div style={{
-          fontFamily: "var(--font-mono)",
-          fontSize: 10,
-          color: "var(--text-dim)",
-          display: "flex",
-          gap: 12,
-        }}>
-          <span>{vertexCount.toLocaleString()} verts</span>
-          <span>{triangleCount?.toLocaleString()} tris</span>
+      <div style={{ textAlign: "center" }}>
+        <div style={{ fontFamily: "var(--font-sans)", fontSize: 11, fontWeight: 600, color: "var(--accent)", marginBottom: 4 }}>
+          Loaded
         </div>
-      )}
-      <div style={{ fontFamily: "var(--font-mono)", fontSize: 10, color: "var(--text-dim)", marginTop: 4 }}>
-        drop to replace
+        {vertexCount !== undefined && (
+          <div style={{
+            fontFamily: "var(--font-mono)",
+            fontSize: 10,
+            color: "var(--text-dim)",
+            display: "flex",
+            gap: 10,
+            justifyContent: "center",
+          }}>
+            <span>{vertexCount.toLocaleString()} verts</span>
+            <span>{triangleCount?.toLocaleString()} tris</span>
+          </div>
+        )}
+        <div style={{ fontFamily: "var(--font-sans)", fontSize: 10, color: "var(--text-dim)", marginTop: 6 }}>
+          Drop to replace
+        </div>
       </div>
     </>
   );
@@ -221,17 +279,30 @@ function LoadedState({ isA }: { isA: boolean }) {
 
 export function FileUpload() {
   return (
-    <div style={{ display: "flex", gap: 20, width: "100%" }}>
+    <div style={{ display: "flex", gap: 16, width: "100%" }}>
       <DropZone side="A" />
+      {/* VS separator */}
       <div style={{
         display: "flex",
+        flexDirection: "column",
         alignItems: "center",
-        fontFamily: "var(--font-mono)",
-        fontSize: 11,
-        color: "var(--text-dim)",
+        justifyContent: "center",
+        gap: 8,
         flexShrink: 0,
       }}>
-        vs
+        <div style={{ width: 1, flex: 1, background: "var(--border)" }} />
+        <span style={{
+          fontFamily: "var(--font-sans)",
+          fontSize: 9,
+          fontWeight: 700,
+          color: "var(--text-dim)",
+          letterSpacing: 1.5,
+          textTransform: "uppercase",
+          padding: "4px 0",
+        }}>
+          vs
+        </span>
+        <div style={{ width: 1, flex: 1, background: "var(--border)" }} />
       </div>
       <DropZone side="B" />
     </div>
