@@ -112,7 +112,7 @@ export default function PixelDiffView({ initialAngle, onClose }: Props) {
     const initH = canvas.clientHeight || 600;
     canvas.width = Math.round(initW * dpr);
     canvas.height = Math.round(initH * dpr);
-    renderer.setSize(Math.round(initW * dpr), Math.round(initH * dpr), false);
+    renderer.setSize(initW, initH, false);
 
     const camera = new THREE.PerspectiveCamera(FOV, initW / initH, 0.01, 10000);
     const controls = new OrbitControls(camera, canvas);
@@ -152,7 +152,7 @@ export default function PixelDiffView({ initialAngle, onClose }: Props) {
       if (w === 0 || h === 0) return;
       canvas.width = Math.round(w * dpr);
       canvas.height = Math.round(h * dpr);
-      renderer.setSize(Math.round(w * dpr), Math.round(h * dpr), false);
+      renderer.setSize(w, h, false); // diff renderer stays at CSS pixels
       camera.aspect = w / h;
       camera.updateProjectionMatrix();
       needsUpdateRef.current = true;
@@ -162,8 +162,8 @@ export default function PixelDiffView({ initialAngle, onClose }: Props) {
     const gl = renderer.getContext() as WebGLRenderingContext;
 
     function renderAndDiff() {
-      const w = canvas!.width;
-      const h = canvas!.height;
+      const w = offscreen.width; // CSS pixels — diff stays at low res
+      const h = offscreen.height;
       const size = w * h;
 
       renderer.render(sceneA, camera);
@@ -201,7 +201,9 @@ export default function PixelDiffView({ initialAngle, onClose }: Props) {
         }
       }
 
-      ctx!.putImageData(imageData, 0, 0);
+      const tmp = new OffscreenCanvas(w, h);
+      tmp.getContext("2d")!.putImageData(imageData, 0, 0);
+      ctx!.drawImage(tmp, 0, 0, canvas!.width, canvas!.height);
       setLivePct((changed / size) * 100);
     }
 

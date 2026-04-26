@@ -88,9 +88,12 @@ export default function FreeformPixelDiffView() {
     // ── Set initial size first so aspect ratio is correct before framing ──────
     const initW = canvas.clientWidth || 800;
     const initH = canvas.clientHeight || 600;
+    // Display canvas: full DPR resolution for crisp output
     canvas.width = Math.round(initW * dpr);
     canvas.height = Math.round(initH * dpr);
-    renderer.setSize(Math.round(initW * dpr), Math.round(initH * dpr), false);
+    // Diff renderer: CSS-pixel resolution only — readPixels+CPU loop cost is
+    // proportional to pixel count, so we never scale it by DPR
+    renderer.setSize(initW, initH, false);
 
     // ── Camera + OrbitControls ────────────────────────────────────────────────
     const camera = new THREE.PerspectiveCamera(FOV, initW / initH, 0.01, 10000);
@@ -129,7 +132,7 @@ export default function FreeformPixelDiffView() {
       if (w === 0 || h === 0) return;
       canvas.width = Math.round(w * dpr);
       canvas.height = Math.round(h * dpr);
-      renderer.setSize(Math.round(w * dpr), Math.round(h * dpr), false);
+      renderer.setSize(w, h, false); // diff renderer stays at CSS pixels
       camera.aspect = w / h;
       camera.updateProjectionMatrix();
       needsUpdateRef.current = true;
@@ -139,8 +142,9 @@ export default function FreeformPixelDiffView() {
     const gl = renderer.getContext() as WebGLRenderingContext;
 
     function renderAndDiff() {
-      const w = canvas!.width;
-      const h = canvas!.height;
+      // Diff at CSS-pixel resolution (offscreen renderer is sized to CSS pixels)
+      const w = offscreen.width;
+      const h = offscreen.height;
       const size = w * h;
 
       renderer.render(sceneA, camera);
@@ -183,7 +187,11 @@ export default function FreeformPixelDiffView() {
         }
       }
 
-      ctx!.putImageData(imageData, 0, 0);
+      // Write diff result to a small offscreen canvas, then scale up to the
+      // full-DPR display canvas — GPU does the upscale for free
+      const tmp = new OffscreenCanvas(w, h);
+      tmp.getContext("2d")!.putImageData(imageData, 0, 0);
+      ctx!.drawImage(tmp, 0, 0, canvas!.width, canvas!.height);
       setPct((changed / size) * 100);
     }
 
