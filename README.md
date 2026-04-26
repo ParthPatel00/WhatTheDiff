@@ -22,6 +22,28 @@ This repo has three reference documents. Read them in this order before writing 
 
 ---
 
+## Electron build
+
+Make sure to do:
+```sh
+cd frontend
+npm run build
+```
+
+And then do this to run the electron app:
+```sh
+cd electron
+npx electron .
+```
+
+This is how you build the final executable:
+```sh
+cd electron
+npm run build:mac
+```
+
+---
+
 ## Scope
 
 The webapp is the focus. A separate Blender plugin track is owned elsewhere and is not covered by these docs. Phases 5-7 in `PHASES.md` (`npx whathediff` CLI, GitHub Actions workflow, GitHub App inline viewer) are stretch goals past the webapp MVP.
