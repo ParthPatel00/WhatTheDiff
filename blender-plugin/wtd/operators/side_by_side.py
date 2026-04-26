@@ -22,20 +22,18 @@ def _get_view3d_areas(screen):
 
 def _create_camera(name: str, center: Vector, radius: float) -> bpy.types.Object:
     """Create (or reuse) a named camera auto-framed on the model's bounding sphere."""
-    # Remove stale camera
     existing = bpy.data.objects.get(name)
     if existing:
         bpy.data.objects.remove(existing, do_unlink=True)
 
     cam_data = bpy.data.cameras.new(name)
-    cam_data.lens = 50  # 50mm — matches web app FOV approximately
+    cam_data.lens = 50  # 50mm
 
     cam_obj = bpy.data.objects.new(name, cam_data)
     bpy.context.scene.collection.objects.link(cam_obj)
 
-    # Position: pull back from center along Y axis at calculated distance
     fov_rad = 2 * math.atan(cam_data.sensor_width / (2 * cam_data.lens))
-    distance = (radius / math.sin(fov_rad / 2)) * 1.5   # 1.5× for comfortable framing
+    distance = (radius / math.sin(fov_rad / 2)) * 1.5
     distance = max(distance, 0.5)
 
     cam_obj.location = center + Vector((0.0, -distance, radius * 0.3))
@@ -62,34 +60,29 @@ def _get_window_region(area):
 
 def _isolate_area_via_hide(area, show_col_name: str, hide_col_name: str):
     """
-    Isolate a VIEW_3D area by hiding the unwanted collection's objects
-    from the viewport on a per-object basis, then entering local view
-    for only the objects belonging to show_col_name.
-
-    Strategy (Blender-5.x reliable approach):
-      1. Set hide_viewport = True on all objects of hide_col_name.
-      2. Set hide_viewport = False on all objects of show_col_name.
-      3. In the area's context, select only show_col_name objects and enter local view.
-      4. Immediately restore hide_viewport flags after local view is entered —
-         local view captures its own set, so restoring flags has no further effect.
+    Isolate a VIEW_3D area by hiding the unwanted collection's objects globally,
+    entering local view (which captures the visible objects), and then ALWAYS 
+    restoring global visibility via try...finally so the scene isn't broken.
     """
     col_show = bpy.data.collections.get(show_col_name)
     col_hide = bpy.data.collections.get(hide_col_name)
     if not col_show:
         return
 
-    # Step 1 & 2: Adjust global hide_viewport temporarily
     show_objects = list(col_show.all_objects)
     hide_objects = list(col_hide.all_objects) if col_hide else []
 
-    for obj in hide_objects:
-        obj.hide_viewport = True
-    for obj in show_objects:
-        obj.hide_viewport = False
+    try:
+        # 1. Hide unwanted objects globally
+        for obj in hide_objects:
+            obj.hide_viewport = True
+        for obj in show_objects:
+            obj.hide_viewport = False
 
-    # Step 3: Enter local view inside this specific area
-    region = _get_window_region(area)
-    if region:
+        region = _get_window_region(area)
+        if not region:
+            return
+
         with bpy.context.temp_override(area=area, region=region):
             # Exit local view if already active
             for space in area.spaces:
@@ -119,25 +112,59 @@ def _isolate_area_via_hide(area, show_col_name: str, hide_col_name: str):
             except Exception:
                 pass
 
-    # Step 4: Restore hide_viewport — local view already has its own captured set
-    for obj in hide_objects:
-        obj.hide_viewport = False
+    finally:
+        # ALWAYS restore global hide_viewport so we don't break the scene!
+        for obj in hide_objects:
+            obj.hide_viewport = False
+        for obj in show_objects:
+            obj.hide_viewport = False
 
 
-def _restore_single_viewport(screen):
+def restore_default_viewport_state(context):
     """
-    Collapse to a single VIEW_3D area if multiple exist.
+    Collapse to a single VIEW_3D area and clear any local view overrides.
+    Must loop backwards because area_close invalidates the areas list.
     """
-    areas = _get_view3d_areas(screen)
-    if len(areas) <= 1:
-        return
-    # Close all but the first VIEW_3D area
-    for area in areas[1:]:
-        override = {"area": area}
+    # 1. Collapse areas
+    while True:
+        areas = _get_view3d_areas(context.screen)
+        if len(areas) <= 1:
+            break
+        
+        area_to_close = areas[-1]
+        region = _get_window_region(area_to_close)
+        
+        override = {
+            "window": context.window,
+            "screen": context.screen,
+            "area": area_to_close,
+        }
+        if region:
+            override["region"] = region
+            
         try:
-            bpy.ops.screen.area_close(override)
+            with context.temp_override(**override):
+                bpy.ops.screen.area_close()
         except Exception:
-            pass
+            break
+
+    # 2. Clear local view on remaining areas
+    for area in _get_view3d_areas(context.screen):
+        for space in area.spaces:
+            if space.type == "VIEW_3D" and space.local_view is not None:
+                region = _get_window_region(area)
+                if region:
+                    override = {
+                        "window": context.window,
+                        "screen": context.screen,
+                        "area": area,
+                        "region": region
+                    }
+                    try:
+                        with context.temp_override(**override):
+                            bpy.ops.view3d.localview(frame_selected=False)
+                    except Exception:
+                        pass
 
 
 # ---------------------------------------------------------------------------
@@ -157,7 +184,7 @@ class WTD_OT_SideBySideView(bpy.types.Operator):
             return {"CANCELLED"}
 
         # --- 1. Ensure single viewport to start clean ---
-        _restore_single_viewport(context.screen)
+        restore_default_viewport_state(context)
 
         # --- 2. Find the primary VIEW_3D area ---
         areas = _get_view3d_areas(context.screen)
@@ -167,13 +194,18 @@ class WTD_OT_SideBySideView(bpy.types.Operator):
         primary_area = areas[0]
 
         # --- 3. Split vertically 50/50 ---
-        with context.temp_override(area=primary_area):
+        region = _get_window_region(primary_area)
+        override = {"area": primary_area}
+        if region:
+            override["region"] = region
+            
+        with context.temp_override(**override):
             bpy.ops.screen.area_split(direction="VERTICAL", factor=0.5)
 
         # --- 4. Identify left and right VIEW_3D areas after split ---
         areas_after = _get_view3d_areas(context.screen)
         if len(areas_after) < 2:
-            self.report({"ERROR"}, "Area split failed.")
+            self.report({"ERROR"}, "Area split failed. Are you in a valid workspace?")
             return {"CANCELLED"}
 
         # Sort by x position: left area has smaller x
@@ -192,22 +224,19 @@ class WTD_OT_SideBySideView(bpy.types.Operator):
         cam_a = _create_camera("WTD_CamA", center_a, radius_a)
         cam_b = _create_camera("WTD_CamB", center_b, radius_b)
 
-        # --- 7. Isolate collections per viewport FIRST (local view locks in the set),
-        #         then assign cameras so the perspective is respected.
-        #         Order matters: isolate → assign camera.
+        # --- 7. Isolate collections per viewport FIRST
         _isolate_area_via_hide(left_area,  show_col_name="WTD_ModelA", hide_col_name="WTD_ModelB")
         _isolate_area_via_hide(right_area, show_col_name="WTD_ModelB", hide_col_name="WTD_ModelA")
 
-        # Camera assignment AFTER local view — localview() resets view_perspective
-        # to PERSP, so we must re-set it afterwards.
+        # --- 8. Camera assignment AFTER local view
         _set_area_camera(left_area,  cam_a)
         _set_area_camera(right_area, cam_b)
 
-        # --- 8. Ensure sync lock is on and register handler ---
+        # --- 9. Ensure sync lock is on and register handler ---
         wtd.sync_cameras = True
         camera_sync.register_sync()
 
-        # --- 9. Set mode ---
+        # --- 10. Set mode ---
         wtd.active_mode = "SIDE_BY_SIDE"
 
         self.report({"INFO"}, "Side-by-side view ready.")

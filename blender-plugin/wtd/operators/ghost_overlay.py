@@ -8,8 +8,7 @@ import bpy
 from ..lib.colors import get_colors
 from ..lib.material_tint import tint_collection, restore_collection
 from ..lib import model_loader, camera_sync
-from .side_by_side import _restore_single_viewport
-
+from .side_by_side import restore_default_viewport_state
 
 def _get_prefs(context):
     addon_key = __package__.split(".")[0]
@@ -69,8 +68,8 @@ class WTD_OT_GhostOverlayView(bpy.types.Operator):
         # --- 1. Unregister camera sync (not needed in single viewport) ---
         camera_sync.unregister_sync()
 
-        # --- 2. Restore to single viewport ---
-        _restore_single_viewport(context.screen)
+        # --- 2. Restore to single viewport and clear local views ---
+        restore_default_viewport_state(context)
 
         # --- 3. Restore any previous tinting (clean start) ---
         restore_collection(col_a)

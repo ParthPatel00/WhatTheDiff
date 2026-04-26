@@ -6,7 +6,7 @@ Runs the pipeline if the cache is empty.
 
 import bpy
 from ..lib import pixel_diff as _pd
-
+from .side_by_side import restore_default_viewport_state
 
 def _get_prefs(context):
     addon_key = __package__.split(".")[0]
@@ -24,6 +24,9 @@ class WTD_OT_AllAnglesView(bpy.types.Operator):
         if not wtd.models_loaded:
             self.report({"WARNING"}, "Load both models first.")
             return {"CANCELLED"}
+
+        # --- Ensure viewport is clean and not split ---
+        restore_default_viewport_state(context)
 
         prefs = _get_prefs(context)
 

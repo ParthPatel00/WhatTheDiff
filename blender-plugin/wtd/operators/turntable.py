@@ -58,6 +58,10 @@ class WTD_OT_TurntableView(bpy.types.Operator):
             self.report({"WARNING"}, "Load both models first.")
             return {"CANCELLED"}
 
+        # Turntable is explicitly "side-by-side rotation" (P13), so ensure we are in side-by-side mode layout
+        if wtd.active_mode != "SIDE_BY_SIDE":
+            bpy.ops.wtd.side_by_side_view()
+
         if _active_operator is not None:
             _active_operator.cancel(context)
             _active_operator = None
