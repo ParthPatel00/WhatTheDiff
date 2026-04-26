@@ -3,6 +3,12 @@
 import { useEffect } from "react";
 import { useDiffStore } from "@/stores/diffStore";
 
+// Detect Electron at runtime via the user-agent string Electron injects.
+// Browsers ignore -webkit-app-region entirely, so it's safe to include in
+// web builds — but we only want the extra padding in the desktop app.
+const isElectron =
+  typeof navigator !== "undefined" && /Electron/.test(navigator.userAgent);
+
 export function Header() {
   const colorblindMode    = useDiffStore((s) => s.colorblindMode);
   const setColorblindMode = useDiffStore((s) => s.setColorblindMode);
@@ -23,9 +29,13 @@ export function Header() {
   return (
     <div style={{
       padding: "12px 24px",
+      // In Electron: push content right so the logo clears the traffic lights
+      paddingLeft: isElectron ? 88 : 24,
       borderBottom: "1px solid var(--border)",
       display: "flex", alignItems: "center", justifyContent: "space-between",
       background: "var(--bg)", flexShrink: 0,
+      // Make the header bar draggable in Electron — browsers ignore this
+      ...( isElectron && { WebkitAppRegion: "drag" } as React.CSSProperties ),
     }}>
       {/* Left: logo + name + version */}
       <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
@@ -48,7 +58,11 @@ export function Header() {
       </div>
 
       {/* Right: colorblind toggle, docs, github */}
-      <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
+      <div style={{
+        display: "flex", alignItems: "center", gap: 16,
+        // Ensure buttons/links stay clickable inside the drag region
+        ...( isElectron && { WebkitAppRegion: "no-drag" } as React.CSSProperties ),
+      }}>
         <button
           onClick={toggleColorblind}
           aria-label={colorblindMode ? "Disable colorblind mode" : "Enable colorblind mode"}
