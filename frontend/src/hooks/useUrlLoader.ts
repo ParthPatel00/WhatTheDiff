@@ -49,10 +49,7 @@ export function useUrlLoader() {
       setFileName(isA ? nameA : nameB);
 
       try {
-        // Route through the Next.js proxy so COEP: require-corp doesn't block
-        // cross-origin fetches from Supabase signed URLs in the browser.
-        const proxied = `/api/proxy?url=${encodeURIComponent(url)}`;
-        const res = await fetch(proxied);
+        const res = await fetch(url);
         if (!res.ok) throw new Error(`${res.status} ${res.statusText} — ${url}`);
 
         const buffer = await res.arrayBuffer();
