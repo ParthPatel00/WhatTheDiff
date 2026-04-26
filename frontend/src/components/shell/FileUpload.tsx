@@ -2,23 +2,13 @@
 
 import { useCallback, useRef } from "react";
 import { useDropzone } from "react-dropzone";
-import * as THREE from "three";
 import { loadModel } from "@/lib/modelLoader";
 import { disposeModel } from "@/lib/disposeModel";
+import { getSharedRenderer } from "@/lib/sharedRenderer";
 import { useDiffStore } from "@/stores/diffStore";
 
 const MAX_SIZE_BYTES = 200 * 1024 * 1024;
 const WARN_SIZE_BYTES = 50 * 1024 * 1024;
-
-let sharedRenderer: THREE.WebGLRenderer | null = null;
-
-function getSharedRenderer(): THREE.WebGLRenderer {
-  if (!sharedRenderer) {
-    sharedRenderer = new THREE.WebGLRenderer({ antialias: false, preserveDrawingBuffer: true });
-    sharedRenderer.setSize(1, 1);
-  }
-  return sharedRenderer;
-}
 
 interface DropZoneProps {
   side: "A" | "B";
