@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import * as THREE from "three";
 import { OrbitControls } from "three/addons/controls/OrbitControls.js";
 import { useDiffStore } from "@/stores/diffStore";
-import { applySceneLighting, frameCamerasToBoth } from "@/components/viewer/ViewerPanel";
+import { applySceneLighting } from "@/components/viewer/ViewerPanel";
 import { createViewportGrid } from "@/lib/viewportGrid";
 
 const FOV = 45;
