@@ -3,13 +3,16 @@
 import { useEffect, useRef, useState } from "react";
 import * as THREE from "three";
 import { OrbitControls } from "three/addons/controls/OrbitControls.js";
-import { useThreeViewer } from "@/hooks/useThreeViewer";
-import { applySceneLighting, frameCamerasToBoth } from "@/components/viewer/ViewerPanel";
-import { WebGLContextLostOverlay } from "@/components/viewer/ErrorBoundary";
-import { createViewportGrid, disposeViewportGrid } from "@/lib/viewportGrid";
 import { useDiffStore } from "@/stores/diffStore";
-import { CAMERA_ANGLE_ORDER } from "@/lib/cameraPresets";
+import { applySceneLighting } from "@/components/viewer/ViewerPanel";
+import { createViewportGrid } from "@/lib/viewportGrid";
+import { CAMERA_ANGLE_ORDER, CAMERA_PRESETS } from "@/lib/cameraPresets";
 import { CameraAngle } from "@/lib/types";
+
+const FOV = 45;
+const BG = 0x3a3a3a;
+const BG_R = 58; // 0x3a
+const MIX = 0.8;
 
 const ANGLE_LABELS: Record<CameraAngle, string> = {
   [CameraAngle.Front]: "Front",
@@ -30,6 +33,7 @@ export default function PixelDiffView({ initialAngle, onClose }: Props) {
   const modelB = useDiffStore((s) => s.modelB);
   const fileNameA = useDiffStore((s) => s.fileNameA);
   const diffResults = useDiffStore((s) => s.diffResults);
+  const tolerance = useDiffStore((s) => s.tolerance);
   const cameraResetToken = useDiffStore((s) => s.cameraResetToken);
 
   const [angleIndex, setAngleIndex] = useState(() => {
@@ -45,182 +49,201 @@ export default function PixelDiffView({ initialAngle, onClose }: Props) {
   }, [initialAngle]);
 
   const canvasRef = useRef<HTMLCanvasElement>(null);
-  const overlayRef = useRef<HTMLCanvasElement>(null);
-  const sceneRef = useRef(new THREE.Scene());
-  const cameraRef = useRef(new THREE.PerspectiveCamera(45, 1, 0.01, 10000));
+  const [livePct, setLivePct] = useState<number | null>(null);
+
+  // Refs that the render loop reads — changes trigger re-render without remounting
+  const angleIndexRef = useRef(angleIndex);
+  const toleranceRef = useRef(tolerance);
+  const needsUpdateRef = useRef(true);
+  const needsSnapRef = useRef(true);
+  const cameraRef = useRef<THREE.PerspectiveCamera | null>(null);
   const controlsRef = useRef<OrbitControls | null>(null);
-  const gridRef = useRef<THREE.Group | null>(null);
-  const [contextLost, setContextLost] = useState(false);
 
-  const currentAngle = CAMERA_ANGLE_ORDER[angleIndex];
-  const result = diffResults.find((r) => r.angle === currentAngle);
+  useEffect(() => { angleIndexRef.current = angleIndex; needsUpdateRef.current = true; needsSnapRef.current = true; }, [angleIndex]);
+  useEffect(() => { toleranceRef.current = tolerance; needsUpdateRef.current = true; }, [tolerance]);
 
-  const { rendererRef } = useThreeViewer(
-    canvasRef,
-    (renderer) => {
-      controlsRef.current?.update();
-      renderer.setScissorTest(false);
-      renderer.render(sceneRef.current, cameraRef.current);
-    },
-    {
-      onContextLost: () => setContextLost(true),
-      onContextRestored: () => setContextLost(false),
-    }
-  );
+  // Camera reset: re-snap to current angle
+  useEffect(() => {
+    needsUpdateRef.current = true;
+    needsSnapRef.current = true;
+  }, [cameraResetToken]);
 
-  // One-time setup: lights, camera, controls, resize
+  // Main setup: mirrors FreeformPixelDiffView but with preset-locked camera
   useEffect(() => {
     const canvas = canvasRef.current;
-    if (!canvas) return;
+    if (!canvas || !modelA || !modelB) return;
 
-    const scene = sceneRef.current;
-    applySceneLighting(scene);
-    scene.background = new THREE.Color(0x3a3a3a);
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
 
-    cameraRef.current.position.set(0, 0, 5);
+    // Offscreen WebGL renderer
+    const offscreen = document.createElement("canvas");
+    const renderer = new THREE.WebGLRenderer({ canvas: offscreen, antialias: true, preserveDrawingBuffer: true });
+    const dpr = Math.min(window.devicePixelRatio, 2);
+    renderer.setPixelRatio(1); // keep 1 — DPR applied manually to offscreen size
+    renderer.outputColorSpace = THREE.SRGBColorSpace;
+    renderer.toneMapping = THREE.LinearToneMapping;
+    renderer.setClearColor(BG, 1);
 
-    const controls = new OrbitControls(cameraRef.current, canvas);
+    // Clones with shared offset (same as renderer.ts renderBothModels)
+    const cloneA = modelA.scene.clone();
+    const cloneB = modelB.scene.clone();
+    cloneA.position.set(0, 0, 0);
+    cloneB.position.set(0, 0, 0);
+    const boxA = new THREE.Box3().setFromObject(cloneA);
+    const centerA = new THREE.Vector3();
+    boxA.getCenter(centerA);
+    const offset = new THREE.Vector3(-centerA.x, -boxA.min.y, -centerA.z);
+    cloneA.position.copy(offset);
+    cloneB.position.copy(offset);
+
+    const sceneA = new THREE.Scene();
+    sceneA.background = new THREE.Color(BG);
+    applySceneLighting(sceneA);
+    sceneA.add(cloneA, createViewportGrid());
+
+    const sceneB = new THREE.Scene();
+    sceneB.background = new THREE.Color(BG);
+    applySceneLighting(sceneB);
+    sceneB.add(cloneB, createViewportGrid());
+
+    // Initial canvas size
+    const initW = canvas.clientWidth || 800;
+    const initH = canvas.clientHeight || 600;
+    canvas.width = Math.round(initW * dpr);
+    canvas.height = Math.round(initH * dpr);
+    renderer.setSize(initW, initH, false);
+
+    const camera = new THREE.PerspectiveCamera(FOV, initW / initH, 0.01, 10000);
+    const controls = new OrbitControls(camera, canvas);
     controls.enableDamping = true;
     controls.dampingFactor = 0.1;
+
+    // Compute union sphere for camera distance (same as renderer.ts)
+    const boxB = new THREE.Box3().setFromObject(cloneB);
+    const unionBox = new THREE.Box3().setFromObject(cloneA).union(boxB);
+    const unionSphere = new THREE.Sphere();
+    unionBox.getBoundingSphere(unionSphere);
+    const fovRad = (FOV * Math.PI) / 180;
+    const cameraDistance = unionSphere.radius / Math.sin(fovRad / 2);
+
+    function snapCamera(cam: THREE.PerspectiveCamera, ctrl: OrbitControls, angle: CameraAngle) {
+      const preset = CAMERA_PRESETS[angle];
+      const target = unionSphere.center;
+      cam.position.copy(preset.direction).multiplyScalar(cameraDistance).add(target);
+      cam.up.set(0, angle === CameraAngle.Top ? 0 : 1, angle === CameraAngle.Top ? -1 : 0);
+      cam.lookAt(target);
+      cam.near = cameraDistance * 0.001;
+      cam.far = cameraDistance * 10;
+      cam.updateProjectionMatrix();
+      ctrl.target.copy(target);
+      ctrl.update();
+    }
+
+    snapCamera(camera, controls, CAMERA_ANGLE_ORDER[angleIndexRef.current]);
+    cameraRef.current = camera;
     controlsRef.current = controls;
+
+    controls.addEventListener("change", () => { needsUpdateRef.current = true; });
 
     const ro = new ResizeObserver(() => {
       const w = canvas.clientWidth;
       const h = canvas.clientHeight;
-      cameraRef.current.aspect = w / h;
-      cameraRef.current.updateProjectionMatrix();
+      if (w === 0 || h === 0) return;
+      canvas.width = Math.round(w * dpr);
+      canvas.height = Math.round(h * dpr);
+      renderer.setSize(w, h, false); // diff renderer stays at CSS pixels
+      camera.aspect = w / h;
+      camera.updateProjectionMatrix();
+      needsUpdateRef.current = true;
     });
     ro.observe(canvas);
 
-    const initAspect = canvas.clientWidth / Math.max(canvas.clientHeight, 1);
-    cameraRef.current.aspect = initAspect;
-    cameraRef.current.updateProjectionMatrix();
+    const gl = renderer.getContext() as WebGLRenderingContext;
 
-    return () => {
-      controls.dispose();
-      ro.disconnect();
-      controlsRef.current = null;
-    };
-  }, []);
+    function renderAndDiff() {
+      const w = offscreen.width; // CSS pixels — diff stays at low res
+      const h = offscreen.height;
+      const size = w * h;
 
-  // Load model A into scene (model A is the reference for diff display)
-  useEffect(() => {
-    const scene = sceneRef.current;
-    const lights = scene.children.filter((c) => c instanceof THREE.Light);
-    scene.clear();
-    lights.forEach((l) => scene.add(l));
-    if (gridRef.current) { disposeViewportGrid(gridRef.current); gridRef.current = null; }
+      renderer.render(sceneA, camera);
+      const pixelsA = new Uint8ClampedArray(size * 4);
+      gl.readPixels(0, 0, w, h, gl.RGBA, gl.UNSIGNED_BYTE, pixelsA);
 
-    if (!modelA) return;
+      renderer.render(sceneB, camera);
+      const pixelsB = new Uint8ClampedArray(size * 4);
+      gl.readPixels(0, 0, w, h, gl.RGBA, gl.UNSIGNED_BYTE, pixelsB);
 
-    const box = new THREE.Box3().setFromObject(modelA.scene);
-    if (!box.isEmpty()) modelA.scene.position.y = -box.min.y;
-    scene.add(modelA.scene);
+      const tol = toleranceRef.current;
+      const imageData = new ImageData(w, h);
+      const out = imageData.data;
+      let changed = 0;
 
-    frameCamerasToBoth(
-      cameraRef.current,
-      cameraRef.current,
-      modelA.scene,
-      modelB?.scene ?? null,
-      controlsRef.current ?? undefined
-    );
-
-    const grid = createViewportGrid();
-    gridRef.current = grid;
-    scene.add(grid);
-
-    return () => { modelA.scene.position.y = 0; scene.remove(modelA.scene); };
-  }, [modelA]); // eslint-disable-line react-hooks/exhaustive-deps
-
-  // Reframe when model B changes (affects framing even though B isn't in this scene)
-  useEffect(() => {
-    if (!modelA) return;
-    frameCamerasToBoth(
-      cameraRef.current,
-      cameraRef.current,
-      modelA.scene,
-      modelB?.scene ?? null,
-      controlsRef.current ?? undefined
-    );
-  }, [modelB]); // eslint-disable-line react-hooks/exhaustive-deps
-
-  // Reset camera
-  useEffect(() => {
-    if (!modelA) return;
-    frameCamerasToBoth(
-      cameraRef.current,
-      cameraRef.current,
-      modelA.scene,
-      modelB?.scene ?? null,
-      controlsRef.current ?? undefined
-    );
-  }, [cameraResetToken]); // eslint-disable-line react-hooks/exhaustive-deps
-
-  // Paint diff overlay: only changed pixels in red, everything else transparent
-  useEffect(() => {
-    const overlay = overlayRef.current;
-    const glCanvas = canvasRef.current;
-    if (!overlay || !glCanvas) return;
-
-    function paint() {
-      if (!overlay || !glCanvas || !result) {
-        // No result — clear overlay
-        if (overlay) {
-          overlay.width = overlay.clientWidth;
-          overlay.height = overlay.clientHeight;
+      for (let y = 0; y < h; y++) {
+        const srcY = h - 1 - y; // WebGL reads bottom-to-top
+        for (let x = 0; x < w; x++) {
+          const s = (srcY * w + x) * 4;
+          const d = (y * w + x) * 4;
+          const maxDiff = Math.max(
+            Math.abs(pixelsA[s]     - pixelsB[s]),
+            Math.abs(pixelsA[s + 1] - pixelsB[s + 1]),
+            Math.abs(pixelsA[s + 2] - pixelsB[s + 2]),
+          );
+          if (maxDiff > tol) {
+            out[d] = 255; out[d + 1] = 0; out[d + 2] = 0; out[d + 3] = 255;
+            changed++;
+          } else {
+            out[d]     = (pixelsA[s]     * MIX + BG_R * (1 - MIX)) | 0;
+            out[d + 1] = (pixelsA[s + 1] * MIX + BG_R * (1 - MIX)) | 0;
+            out[d + 2] = (pixelsA[s + 2] * MIX + BG_R * (1 - MIX)) | 0;
+            out[d + 3] = 255;
+          }
         }
-        return;
-      }
-      const w = glCanvas.clientWidth;
-      const h = glCanvas.clientHeight;
-      if (w === 0 || h === 0) return;
-      overlay.width = w;
-      overlay.height = h;
-
-      const ctx = overlay.getContext("2d");
-      if (!ctx) return;
-      ctx.clearRect(0, 0, w, h);
-
-      // Build a transparent image with only changed pixels highlighted
-      const src = result.diff; // Uint8ClampedArray, 1024×1024 RGBA
-      const size = 1024;
-      const out = new Uint8ClampedArray(size * size * 4);
-      for (let i = 0; i < size * size; i++) {
-        const r = src[i * 4];
-        const g = src[i * 4 + 1];
-        const b = src[i * 4 + 2];
-        const a = src[i * 4 + 3];
-        // The diff image uses red pixels (high R, low G/B) to mark changes
-        if (r > 180 && g < 80 && b < 80 && a > 0) {
-          out[i * 4] = 255;
-          out[i * 4 + 1] = 0;
-          out[i * 4 + 2] = 0;
-          out[i * 4 + 3] = 220;
-        }
-        // else: transparent — live 3D render shows through
       }
 
-      const offscreen = new OffscreenCanvas(size, size);
-      const octx = offscreen.getContext("2d")!;
-      octx.putImageData(new ImageData(out, size, size), 0, 0);
-      ctx.drawImage(offscreen, 0, 0, w, h);
+      const tmp = new OffscreenCanvas(w, h);
+      tmp.getContext("2d")!.putImageData(imageData, 0, 0);
+      ctx!.drawImage(tmp, 0, 0, canvas!.width, canvas!.height);
+      setLivePct((changed / size) * 100);
     }
 
-    paint();
+    needsUpdateRef.current = true;
+    needsSnapRef.current = true;
+    let animId: number;
 
-    const ro = new ResizeObserver(paint);
-    ro.observe(glCanvas);
-    return () => ro.disconnect();
-  }, [result]);
+    function animate() {
+      animId = requestAnimationFrame(animate);
+      controls.update();
+
+      const angle = CAMERA_ANGLE_ORDER[angleIndexRef.current];
+      if (needsSnapRef.current) {
+        snapCamera(camera, controls, angle);
+        needsSnapRef.current = false;
+        needsUpdateRef.current = true;
+      }
+      if (needsUpdateRef.current) {
+        renderAndDiff();
+        needsUpdateRef.current = false;
+      }
+    }
+
+    animate();
+
+    return () => {
+      cancelAnimationFrame(animId);
+      controls.dispose();
+      renderer.dispose();
+      ro.disconnect();
+      cameraRef.current = null;
+      controlsRef.current = null;
+    };
+  }, [modelA, modelB]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Keyboard navigation
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === "ArrowLeft") {
-        setAngleIndex((i) => (i - 1 + CAMERA_ANGLE_ORDER.length) % CAMERA_ANGLE_ORDER.length);
-      } else if (e.key === "ArrowRight") {
-        setAngleIndex((i) => (i + 1) % CAMERA_ANGLE_ORDER.length);
-      }
+      if (e.key === "ArrowLeft") setAngleIndex((i) => (i - 1 + CAMERA_ANGLE_ORDER.length) % CAMERA_ANGLE_ORDER.length);
+      else if (e.key === "ArrowRight") setAngleIndex((i) => (i + 1) % CAMERA_ANGLE_ORDER.length);
     };
     document.addEventListener("keydown", onKey);
     return () => document.removeEventListener("keydown", onKey);
@@ -238,7 +261,9 @@ export default function PixelDiffView({ initialAngle, onClose }: Props) {
     );
   }
 
-  const pct = result?.pct ?? 0;
+  const currentAngle = CAMERA_ANGLE_ORDER[angleIndex];
+  const storedResult = diffResults.find((r) => r.angle === currentAngle);
+  const pct = livePct ?? storedResult?.pct ?? 0;
   const badgeColor = pct < 1 ? "var(--green)" : pct > 50 ? "var(--red)" : "var(--yellow)";
 
   return (
@@ -256,7 +281,7 @@ export default function PixelDiffView({ initialAngle, onClose }: Props) {
           )}
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-          {diffResults.length > 0 && (
+          {(livePct !== null || diffResults.length > 0) && (
             <span style={{ fontFamily: "var(--font-mono)", fontSize: 12, color: badgeColor, fontWeight: 600 }}>
               {pct.toFixed(1)}% changed
             </span>
@@ -274,27 +299,13 @@ export default function PixelDiffView({ initialAngle, onClose }: Props) {
         </div>
       </div>
 
-      {/* Canvas — identical structure to SideBySideView */}
+      {/* Canvas */}
       <div style={{ flex: 1, position: "relative", minHeight: 0 }}>
         <canvas
           ref={canvasRef}
+          aria-label={`Pixel diff — ${ANGLE_LABELS[currentAngle]} angle`}
           style={{ display: "block", width: "100%", height: "100%" }}
         />
-        {/* Diff overlay — transparent canvas on top, pointer-events: none so orbit controls still work */}
-        <canvas
-          ref={overlayRef}
-          aria-label={`Pixel diff overlay for ${ANGLE_LABELS[currentAngle]} angle`}
-          style={{
-            position: "absolute", inset: 0,
-            width: "100%", height: "100%",
-            pointerEvents: "none",
-          }}
-        />
-        {contextLost && (
-          <WebGLContextLostOverlay
-            onRestore={() => rendererRef.current?.forceContextRestore()}
-          />
-        )}
         <span style={{
           position: "absolute", bottom: 10, left: "50%", transform: "translateX(-50%)",
           fontFamily: "var(--font-mono)", fontSize: 11, color: "var(--text-dim)",

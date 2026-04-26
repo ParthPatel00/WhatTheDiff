@@ -36,9 +36,29 @@ function AngleCell({ angle, result, onClick }: CellProps) {
 
     canvas.width = RENDER_SIZE;
     canvas.height = RENDER_SIZE;
-    const imageData = new ImageData(RENDER_SIZE, RENDER_SIZE);
-    imageData.data.set(result.diff);
-    ctx.putImageData(imageData, 0, 0);
+
+    // Draw model A render as base
+    ctx.putImageData(result.renderedA, 0, 0);
+
+    // Composite diff pixels (red highlights) on top
+    const src = result.diff;
+    const out = new Uint8ClampedArray(RENDER_SIZE * RENDER_SIZE * 4);
+    for (let i = 0; i < RENDER_SIZE * RENDER_SIZE; i++) {
+      const r = src[i * 4];
+      const g = src[i * 4 + 1];
+      const b = src[i * 4 + 2];
+      const a = src[i * 4 + 3];
+      if (r > 180 && g < 80 && b < 80 && a > 0) {
+        out[i * 4] = 255;
+        out[i * 4 + 1] = 0;
+        out[i * 4 + 2] = 0;
+        out[i * 4 + 3] = 220;
+      }
+    }
+    const offscreen = new OffscreenCanvas(RENDER_SIZE, RENDER_SIZE);
+    const octx = offscreen.getContext("2d")!;
+    octx.putImageData(new ImageData(out, RENDER_SIZE, RENDER_SIZE), 0, 0);
+    ctx.drawImage(offscreen, 0, 0);
   }, [result]);
 
   const pct = result?.pct ?? null;

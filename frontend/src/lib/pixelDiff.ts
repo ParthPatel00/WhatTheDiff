@@ -28,10 +28,11 @@ function runWorker(
   dataB: Uint8ClampedArray,
   tolerance: number,
   angle: CameraAngle,
+  renderedA: ImageData,
 ): Promise<DiffResult> {
   return new Promise((resolve, reject) => {
     worker.onmessage = (e: MessageEvent<WorkerOutput>) => {
-      resolve({ angle, diff: e.data.diff, pct: e.data.pct });
+      resolve({ angle, diff: e.data.diff, pct: e.data.pct, renderedA });
     };
     worker.onerror = reject;
     // Do NOT transfer dataA/dataB — they live in the render cache and must
@@ -54,7 +55,7 @@ export async function computeDiff(
 
   return Promise.all(
     CAMERA_ANGLE_ORDER.map((angle, i) =>
-      runWorker(workers[i], imageDataA[i].data, imageDataB[i].data, tolerance, angle),
+      runWorker(workers[i], imageDataA[i].data, imageDataB[i].data, tolerance, angle, imageDataA[i]),
     ),
   );
 }

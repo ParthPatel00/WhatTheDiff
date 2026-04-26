@@ -1,6 +1,7 @@
 import * as THREE from "three";
 import { CameraAngle } from "./types";
 import { CAMERA_PRESETS, CAMERA_ANGLE_ORDER } from "./cameraPresets";
+import { applySceneLighting } from "@/components/viewer/ViewerPanel";
 
 const RENDER_SIZE = 1024;
 const FOV = 45;
@@ -22,7 +23,7 @@ function getRenderer(): THREE.WebGLRenderer {
     });
     _renderer.setSize(RENDER_SIZE, RENDER_SIZE);
     _renderer.setPixelRatio(1);
-    _renderer.setClearColor(0x000000, 1);
+    _renderer.setClearColor(0x3a3a3a, 1);
   }
   return _renderer;
 }
@@ -79,13 +80,10 @@ function renderAllAngles(
   const renderer = getRenderer();
 
   const threeScene = new THREE.Scene();
-  threeScene.background = new THREE.Color(0x000000);
+  threeScene.background = new THREE.Color(0x3a3a3a);
 
-  // Identical lighting for both models — critical for a fair pixel diff
-  const ambient = new THREE.AmbientLight(0xffffff, 0.5);
-  const directional = new THREE.DirectionalLight(0xffffff, 1.0);
-  directional.position.set(5, 10, 7.5);
-  threeScene.add(ambient, directional);
+  // Identical lighting for both models — matches the interactive view rig
+  applySceneLighting(threeScene);
 
   // Apply the normalization offset via a wrapper (clone shares geometry/materials)
   const clone = scene.clone();

@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import * as THREE from "three";
 import { OrbitControls } from "three/addons/controls/OrbitControls.js";
 import { useDiffStore } from "@/stores/diffStore";
-import { applySceneLighting } from "@/components/viewer/ViewerPanel";
+import { applySceneLighting, frameCamerasToBoth } from "@/components/viewer/ViewerPanel";
 import { createViewportGrid } from "@/lib/viewportGrid";
 
 const FOV = 45;
@@ -55,7 +55,10 @@ export default function FreeformPixelDiffView() {
       antialias: true,
       preserveDrawingBuffer: true,
     });
-    renderer.setPixelRatio(1);
+    const dpr = Math.min(window.devicePixelRatio, 2);
+    renderer.setPixelRatio(1); // keep 1 — DPR applied manually to offscreen size
+    renderer.outputColorSpace = THREE.SRGBColorSpace;
+    renderer.toneMapping = THREE.LinearToneMapping;
     renderer.setClearColor(0x3a3a3a, 1);
 
     // ── Scenes — clones floored at Y=0, centered on A's XZ ──────────────────
@@ -85,8 +88,11 @@ export default function FreeformPixelDiffView() {
     // ── Set initial size first so aspect ratio is correct before framing ──────
     const initW = canvas.clientWidth || 800;
     const initH = canvas.clientHeight || 600;
-    canvas.width = initW;
-    canvas.height = initH;
+    // Display canvas: full DPR resolution for crisp output
+    canvas.width = Math.round(initW * dpr);
+    canvas.height = Math.round(initH * dpr);
+    // Diff renderer: CSS-pixel resolution only — readPixels+CPU loop cost is
+    // proportional to pixel count, so we never scale it by DPR
     renderer.setSize(initW, initH, false);
 
     // ── Camera + OrbitControls ────────────────────────────────────────────────
@@ -124,9 +130,9 @@ export default function FreeformPixelDiffView() {
       const w = canvas.clientWidth;
       const h = canvas.clientHeight;
       if (w === 0 || h === 0) return;
-      canvas.width = w;
-      canvas.height = h;
-      renderer.setSize(w, h, false);
+      canvas.width = Math.round(w * dpr);
+      canvas.height = Math.round(h * dpr);
+      renderer.setSize(w, h, false); // diff renderer stays at CSS pixels
       camera.aspect = w / h;
       camera.updateProjectionMatrix();
       needsUpdateRef.current = true;
@@ -136,8 +142,9 @@ export default function FreeformPixelDiffView() {
     const gl = renderer.getContext() as WebGLRenderingContext;
 
     function renderAndDiff() {
-      const w = canvas!.width;
-      const h = canvas!.height;
+      // Diff at CSS-pixel resolution (offscreen renderer is sized to CSS pixels)
+      const w = offscreen.width;
+      const h = offscreen.height;
       const size = w * h;
 
       renderer.render(sceneA, camera);
@@ -180,7 +187,11 @@ export default function FreeformPixelDiffView() {
         }
       }
 
-      ctx!.putImageData(imageData, 0, 0);
+      // Write diff result to a small offscreen canvas, then scale up to the
+      // full-DPR display canvas — GPU does the upscale for free
+      const tmp = new OffscreenCanvas(w, h);
+      tmp.getContext("2d")!.putImageData(imageData, 0, 0);
+      ctx!.drawImage(tmp, 0, 0, canvas!.width, canvas!.height);
       setPct((changed / size) * 100);
     }
 

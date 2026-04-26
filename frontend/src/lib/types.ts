@@ -58,6 +58,7 @@ export interface DiffResult {
   angle: CameraAngle;
   diff: Uint8ClampedArray;
   pct: number;
+  renderedA: ImageData;
 }
 
 export interface StructuralDiffResult {
