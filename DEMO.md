@@ -9,3 +9,5 @@ Lead with the impact, not the workflow.
 5. **Git integration (20 sec):** Show the post-commit hook opening the viewer automatically after `git commit`. Show the GitHub Actions bot comment with diff images embedded in the PR.
 6. **All angles (10 sec):** Quick 2x3 grid overview with per-angle percentages.
 7. **Close (15 sec):** "Fully client-side, no upload to any server, works with any GLB file, and it fits directly into the workflow your team already uses."
+
+
