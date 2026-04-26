@@ -71,24 +71,24 @@ export function UploadScreen() {
         overflow: "auto",
       }}>
         {/* Title */}
-        <div style={{ textAlign: "center", marginBottom: 40 }}>
+        <div style={{ textAlign: "center", marginBottom: 32 }}>
           <h1 style={{
-            fontFamily: "var(--font-mono)",
-            fontSize: 22,
-            fontWeight: 700,
+            fontFamily: "var(--font-sans)",
+            fontSize: 18,
+            fontWeight: 600,
             color: "var(--text)",
             margin: 0,
-            letterSpacing: -0.3,
+            letterSpacing: 0.1,
           }}>
-            Visual diff for 3D models
+            GLB Visual Diff
           </h1>
           <p style={{
-            fontFamily: "var(--font-mono)",
-            fontSize: 12,
+            fontFamily: "var(--font-sans)",
+            fontSize: 11,
             color: "var(--text-muted)",
-            marginTop: 8,
+            marginTop: 6,
           }}>
-            Drop two GLB files below, or browse commits via the GitHub panel.
+            Drop two .glb files below, or browse commits via the GitHub panel.
           </p>
         </div>
 
@@ -99,31 +99,46 @@ export function UploadScreen() {
 
         {/* Keyboard shortcuts hint */}
         <div style={{
-          marginTop: 40,
-          padding: "12px 20px",
+          marginTop: 32,
+          padding: "10px 18px",
           background: "var(--bg-surface)",
-          borderRadius: 6,
+          borderRadius: 2,
           border: "1px solid var(--border)",
-          fontFamily: "var(--font-mono)",
-          fontSize: 10,
-          color: "var(--text-dim)",
           display: "flex",
           gap: 20,
+          alignItems: "center",
         }}>
+          <span style={{
+            fontFamily: "var(--font-sans)",
+            fontSize: 9,
+            fontWeight: 600,
+            textTransform: "uppercase",
+            letterSpacing: 1,
+            color: "var(--text-dim)",
+            marginRight: 4,
+          }}>
+            Shortcuts
+          </span>
           {[
-            { key: "1-5", desc: "switch modes" },
+            { key: "1–5", desc: "switch modes" },
             { key: "S", desc: "toggle sync" },
             { key: "← →", desc: "step angles" },
           ].map(({ key, desc }) => (
-            <span key={key}>
+            <span key={key} style={{ display: "flex", alignItems: "center", gap: 5 }}>
               <kbd style={{
-                padding: "1px 5px",
+                padding: "1px 6px",
                 background: "var(--bg-elevated)",
-                borderRadius: 3,
-                border: "1px solid var(--border)",
+                borderRadius: 2,
+                border: "1px solid var(--border-focus)",
                 color: "var(--text-muted)",
-              }}>{key}</kbd>
-              {" "}{desc}
+                fontFamily: "var(--font-mono)",
+                fontSize: 10,
+              }}>
+                {key}
+              </kbd>
+              <span style={{ fontFamily: "var(--font-sans)", fontSize: 10, color: "var(--text-dim)" }}>
+                {desc}
+              </span>
             </span>
           ))}
         </div>

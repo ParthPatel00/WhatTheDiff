@@ -30,11 +30,11 @@ const FreeformPixelDiffView = dynamic(
 );
 
 const MODES: { id: ViewMode; label: string; key: string }[] = [
-  { id: "side-by-side", label: "side by side", key: "1" },
-  { id: "ghost",        label: "ghost overlay", key: "2" },
-  { id: "pixel-diff",  label: "pixel diff",    key: "3" },
-  { id: "turntable",   label: "turntable",     key: "4" },
-  { id: "all-angles",  label: "all angles",    key: "5" },
+  { id: "side-by-side", label: "Side By Side", key: "1" },
+  { id: "ghost",        label: "Ghost Overlay", key: "2" },
+  { id: "pixel-diff",  label: "Pixel Diff",    key: "3" },
+  { id: "turntable",   label: "Turntable",     key: "4" },
+  { id: "all-angles",  label: "All Angles",    key: "5" },
 ];
 
 export function ViewerLayout() {
@@ -105,60 +105,100 @@ export function ViewerLayout() {
 
   return (
     <div style={{ display: "flex", flexDirection: "column", flex: 1, height: "100%", minHeight: 0 }}>
-      {/* Mode bar */}
+      {/* ── Mode tab bar — UE5 docked-panel tab style ───────────────────── */}
+      {/*   Active tab: top accent line, bg matches content, NO bottom border  */}
+      {/*   Inactive: transparent, bottom border shows through                 */}
       <div style={{
-        display: "flex", alignItems: "center", gap: 2,
-        background: "var(--bg)", padding: "10px 16px",
-        borderBottom: "1px solid var(--border)", flexShrink: 0,
+        display: "flex",
+        alignItems: "stretch",
+        background: "var(--bg-header)",
+        borderBottom: "1px solid var(--border)",
+        flexShrink: 0,
+        height: 32,
       }}>
-        {MODES.map((m) => (
-          <button
-            key={m.id}
-            onClick={() => setViewMode(m.id)}
-            aria-label={`Switch to ${m.label} mode (${m.key})`}
-            title={`${m.label} [${m.key}]`}
-            style={{
-              padding: "7px 18px", borderRadius: 4,
-              border: `1px solid ${viewMode === m.id ? "var(--border-focus)" : "var(--border)"}`,
-              background: viewMode === m.id ? "var(--bg-elevated)" : "transparent",
-              color: viewMode === m.id ? "var(--text)" : "var(--text-muted)",
-              fontFamily: "var(--font-mono)", fontSize: 12, cursor: "pointer",
-              letterSpacing: 0.3, transition: "all 0.15s ease",
-            }}
-          >
-            {m.label}
-          </button>
-        ))}
+        {MODES.map((m) => {
+          const active = viewMode === m.id;
+          return (
+            <button
+              key={m.id}
+              onClick={() => setViewMode(m.id)}
+              aria-label={`Switch to ${m.label} mode (${m.key})`}
+              title={`${m.label} [${m.key}]`}
+              style={{
+                position: "relative",
+                padding: "0 16px",
+                border: "none",
+                borderRight: "1px solid var(--border)",
+                /* Top accent line on active; invisible placeholder on inactive */
+                borderTop: active ? "2px solid var(--accent)" : "2px solid transparent",
+                /* Active tab bg matches the content area below so it "opens into" it */
+                background: active ? "var(--bg-surface)" : "transparent",
+                /* Active tab removes its OWN bottom border so it merges with content */
+                boxShadow: active ? "0 1px 0 var(--bg-surface)" : "none",
+                color: active ? "var(--text)" : "var(--text-muted)",
+                fontFamily: "var(--font-sans)",
+                fontSize: 11,
+                fontWeight: active ? 600 : 400,
+                cursor: "pointer",
+                letterSpacing: 0.15,
+                transition: "background 0.1s, color 0.1s",
+                whiteSpace: "nowrap",
+                zIndex: active ? 1 : 0,
+              }}
+              onMouseEnter={(e) => {
+                if (!active) {
+                  e.currentTarget.style.background = "rgba(255,255,255,0.05)";
+                  e.currentTarget.style.color = "var(--text)";
+                }
+              }}
+              onMouseLeave={(e) => {
+                if (!active) {
+                  e.currentTarget.style.background = "transparent";
+                  e.currentTarget.style.color = "var(--text-muted)";
+                }
+              }}
+            >
+              {m.label}
+            </button>
+          );
+        })}
 
-        {/* Reset camera — hidden for all-angles which manages its own cameras */}
+        {/* Spacer */}
+        <div style={{ flex: 1 }} />
+
+        {/* Reset camera */}
         {viewMode !== "all-angles" && (
           <button
             onClick={triggerCameraReset}
             aria-label="Reset camera"
             title="Reset camera"
             style={{
-              marginLeft: "auto",
-              display: "flex", alignItems: "center", gap: 6,
-              padding: "6px 12px", borderRadius: 4,
-              border: "1px solid var(--border)", background: "transparent",
-              color: "var(--text-muted)", fontFamily: "var(--font-mono)",
-              fontSize: 11, cursor: "pointer", transition: "all 0.15s ease",
+              display: "flex", alignItems: "center", gap: 5,
+              padding: "0 14px",
+              border: "none",
+              borderLeft: "1px solid var(--border)",
+              background: "transparent",
+              color: "var(--text-muted)",
+              fontFamily: "var(--font-sans)",
+              fontSize: 11,
+              cursor: "pointer",
+              transition: "background 0.1s, color 0.1s",
             }}
             onMouseEnter={(e) => {
+              e.currentTarget.style.background = "rgba(255,255,255,0.04)";
               e.currentTarget.style.color = "var(--text)";
-              e.currentTarget.style.borderColor = "var(--border-focus)";
             }}
             onMouseLeave={(e) => {
+              e.currentTarget.style.background = "transparent";
               e.currentTarget.style.color = "var(--text-muted)";
-              e.currentTarget.style.borderColor = "var(--border)";
             }}
           >
-            <svg width="13" height="13" viewBox="0 0 24 24" fill="none"
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none"
               stroke="currentColor" strokeWidth="2" strokeLinecap="round">
               <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" />
               <path d="M3 3v5h5" />
             </svg>
-            reset camera
+            Reset Camera
           </button>
         )}
       </div>
@@ -202,20 +242,20 @@ function IdenticalOverlay() {
       background: "rgba(20, 20, 20, 0.72)",
     }}>
       <div style={{
-        width: 56, height: 56, borderRadius: "50%",
-        background: "rgba(80, 220, 100, 0.12)",
-        border: "2px solid rgba(80, 220, 100, 0.5)",
+        width: 56, height: 56, borderRadius: 4,
+        background: "var(--accent-dim)",
+        border: "1px solid var(--accent)",
         display: "flex", alignItems: "center", justifyContent: "center",
       }}>
         <svg width="26" height="26" viewBox="0 0 24 24" fill="none"
-          stroke="var(--green)" strokeWidth="2.5">
+          stroke="var(--accent)" strokeWidth="2.5">
           <polyline points="20 6 9 17 4 12" />
         </svg>
       </div>
-      <div style={{ fontFamily: "var(--font-mono)", fontSize: 15, fontWeight: 700, color: "var(--text)" }}>
-        No differences found
+      <div style={{ fontFamily: "var(--font-sans)", fontSize: 14, fontWeight: 700, color: "var(--text)", letterSpacing: 0.2 }}>
+        No Differences Found
       </div>
-      <div style={{ fontFamily: "var(--font-mono)", fontSize: 11, color: "var(--text-muted)" }}>
+      <div style={{ fontFamily: "var(--font-sans)", fontSize: 11, color: "var(--text-muted)" }}>
         v1 and v2 are identical
       </div>
     </div>
