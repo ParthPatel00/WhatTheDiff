@@ -32,7 +32,7 @@ export const useGitHubStore = create<GitHubState>()(
       pat: null,
       username: null,
       savedRepos: [],
-      panelOpen: false,
+      panelOpen: true,
       selectedRepo: null,
       activeTab: "commits",
 
@@ -65,7 +65,7 @@ export const useGitHubStore = create<GitHubState>()(
         pat: s.pat,
         username: s.username,
         savedRepos: s.savedRepos,
-        panelOpen: s.panelOpen,
+        panelOpen: s.panelOpen, // persisted so toggle survives navigation within session
       }),
     }
   )

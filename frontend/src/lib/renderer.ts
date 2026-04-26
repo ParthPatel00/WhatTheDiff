@@ -56,7 +56,8 @@ function renderAngle(
     .add(cameraTarget);
 
   // Top-down camera can't use the default (0,1,0) up vector — use -Z instead
-  camera.up.set(0, angle === CameraAngle.Top ? 0 : 1, angle === CameraAngle.Top ? -1 : 0);
+  const isVertical = angle === CameraAngle.Top || angle === CameraAngle.Bottom;
+  camera.up.set(0, isVertical ? 0 : 1, isVertical ? -1 : 0);
   camera.lookAt(cameraTarget);
   camera.updateProjectionMatrix();
 

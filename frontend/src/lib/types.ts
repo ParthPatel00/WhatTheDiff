@@ -13,7 +13,7 @@ export enum CameraAngle {
   Left = "left",
   Right = "right",
   Top = "top",
-  ThreeQuarter = "34",
+  Bottom = "bottom",
 }
 
 export interface StructuralData {

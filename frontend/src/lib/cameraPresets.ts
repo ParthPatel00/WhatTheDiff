@@ -29,8 +29,8 @@ export const CAMERA_PRESETS: Record<CameraAngle, CameraPreset> = {
     direction: new THREE.Vector3(0, 1, 0),
     target: new THREE.Vector3(0, 0, 0),
   },
-  [CameraAngle.ThreeQuarter]: {
-    direction: new THREE.Vector3(1, 0.7, 1).normalize(),
+  [CameraAngle.Bottom]: {
+    direction: new THREE.Vector3(0, -1, 0),
     target: new THREE.Vector3(0, 0, 0),
   },
 };
@@ -41,5 +41,5 @@ export const CAMERA_ANGLE_ORDER: CameraAngle[] = [
   CameraAngle.Left,
   CameraAngle.Right,
   CameraAngle.Top,
-  CameraAngle.ThreeQuarter,
+  CameraAngle.Bottom,
 ];

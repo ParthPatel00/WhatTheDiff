@@ -165,8 +165,8 @@ export function ViewerLayout() {
 
       {/* Main area: viewer + stats sidebar */}
       <div style={{ display: "flex", flex: 1, minHeight: 0 }}>
-        {/* Viewer area — relative so overlays can anchor to it */}
-        <div style={{ flex: 1, position: "relative", minWidth: 0, overflow: "hidden" }}>
+        {/* Viewer area — flex column so child view components' flex:1 resolves correctly */}
+        <div style={{ flex: 1, position: "relative", minWidth: 0, overflow: "hidden", display: "flex", flexDirection: "column" }}>
           <ErrorBoundary>
             <ActiveView mode={viewMode} />
           </ErrorBoundary>
