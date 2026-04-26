@@ -4,7 +4,7 @@ import { useEffect, useRef } from "react";
 import * as THREE from "three";
 import { OrbitControls } from "three/addons/controls/OrbitControls.js";
 import { useDiffStore } from "@/stores/diffStore";
-import { frameCameraToObject } from "@/components/viewer/ViewerPanel";
+import { frameCamerasToBoth } from "@/components/viewer/ViewerPanel";
 import { Slider } from "@/components/ui/slider";
 import { createViewportGrid, disposeViewportGrid } from "@/lib/viewportGrid";
 
@@ -55,52 +55,24 @@ function tintScene(
 // Uses Box3.setFromObject which evaluates the full node-transform hierarchy —
 // more accurate than gltfParser.getBoundingBox (local space only).
 
-function normalizeAndFrame(
-  cloneA: THREE.Object3D,
-  cloneB: THREE.Object3D,
-  camera: THREE.PerspectiveCamera,
-  controls: OrbitControls
-) {
-  // Use model A's bbox as the shared reference for both clones.
-  // Centering each model independently would offset B relative to A whenever
-  // a modification shifts B's bounding box center (e.g. an extruded part).
+function normalizeClones(cloneA: THREE.Object3D, cloneB: THREE.Object3D) {
+  // Use model A's bbox as the shared reference for both clones so their
+  // relative positions are preserved (same logic as renderer.ts).
   const boxA = new THREE.Box3().setFromObject(cloneA);
   if (boxA.isEmpty()) return;
 
   const centerA = boxA.getCenter(new THREE.Vector3());
-  const sharedOffsetX = -centerA.x;
-  const sharedOffsetY = -boxA.min.y;
-  const sharedOffsetZ = -centerA.z;
+  const offsetX = -centerA.x;
+  const offsetY = -boxA.min.y;
+  const offsetZ = -centerA.z;
 
-  cloneA.position.x += sharedOffsetX;
-  cloneA.position.y += sharedOffsetY;
-  cloneA.position.z += sharedOffsetZ;
+  cloneA.position.x += offsetX;
+  cloneA.position.y += offsetY;
+  cloneA.position.z += offsetZ;
 
-  cloneB.position.x += sharedOffsetX;
-  cloneB.position.y += sharedOffsetY;
-  cloneB.position.z += sharedOffsetZ;
-
-  // Bounding spheres after centering — centers should now be near origin.
-  const sphereA = new THREE.Sphere();
-  const sphereB = new THREE.Sphere();
-  new THREE.Box3().setFromObject(cloneA).getBoundingSphere(sphereA);
-  new THREE.Box3().setFromObject(cloneB).getBoundingSphere(sphereB);
-
-  const radius = Math.max(sphereA.radius, sphereB.radius, 0.01);
-  const fov = camera.fov * (Math.PI / 180);
-  const dist = (radius / Math.sin(fov / 2)) * 1.2;
-
-  // With models floored at Y=0, the visual center is at half their height.
-  // Target the midpoint of the union bounding box so the model is well-framed.
-  const unionBox = new THREE.Box3().setFromObject(cloneA).union(new THREE.Box3().setFromObject(cloneB));
-  const target = unionBox.isEmpty() ? new THREE.Vector3(0, 0, 0) : unionBox.getCenter(new THREE.Vector3());
-
-  camera.position.set(target.x, target.y, target.z + dist);
-  camera.near = dist / 100;
-  camera.far = dist * 10;
-  camera.updateProjectionMatrix();
-  controls.target.copy(target);
-  controls.update();
+  cloneB.position.x += offsetX;
+  cloneB.position.y += offsetY;
+  cloneB.position.z += offsetZ;
 }
 
 // ─── legend ──────────────────────────────────────────────────────────────────
@@ -262,7 +234,8 @@ export function GhostOverlayView() {
     cloneARef.current = cloneA;
     cloneBRef.current = cloneB;
 
-    normalizeAndFrame(cloneA, cloneB, camera, controls);
+    normalizeClones(cloneA, cloneB);
+    frameCamerasToBoth(camera, camera, cloneA as THREE.Group, cloneB as THREE.Group, controls);
 
     // Models are now floored at Y=0 by normalizeAndFrame, so grid sits at Y=0.
     const grid = createViewportGrid();
@@ -303,11 +276,12 @@ export function GhostOverlayView() {
   }, [opacity]);
 
   useEffect(() => {
-    const scene = sceneRef.current;
     const camera = cameraRef.current;
     const controls = controlsRef.current;
-    if (!scene || !camera || !controls) return;
-    frameCameraToObject(camera, scene, controls);
+    const cloneA = cloneARef.current;
+    const cloneB = cloneBRef.current;
+    if (!camera || !controls || !cloneA || !cloneB) return;
+    frameCamerasToBoth(camera, camera, cloneA as THREE.Group, cloneB as THREE.Group, controls);
   }, [cameraResetToken]);
 
   // ── colors for the legend strip ──
