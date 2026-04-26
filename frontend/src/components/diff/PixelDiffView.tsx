@@ -125,7 +125,8 @@ export default function PixelDiffView({ initialAngle, onClose }: Props) {
       {/* Canvas area */}
       <div style={{
         flex: 1, display: "flex", alignItems: "center", justifyContent: "center",
-        background: "var(--bg-canvas)", overflow: "hidden", position: "relative",
+        overflow: "hidden", position: "relative",
+        background: "var(--bg-elevated)",
       }}>
         <canvas
           ref={canvasRef}

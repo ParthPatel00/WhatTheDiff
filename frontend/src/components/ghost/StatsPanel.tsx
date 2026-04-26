@@ -47,8 +47,8 @@ function SectionLabel({ children }: { children: React.ReactNode }) {
       gridColumn: "1 / -1",
       color: "var(--text-dim)",
       fontFamily: "var(--font-mono)",
-      fontSize: 9,
-      letterSpacing: 1,
+      fontSize: 10,
+      letterSpacing: 1.5,
       textTransform: "uppercase",
       marginTop: 10,
       paddingTop: 8,
@@ -59,15 +59,16 @@ function SectionLabel({ children }: { children: React.ReactNode }) {
   );
 }
 
-function Row({ label, value, sub, color }: {
+function Row({ label, value, sub, color, labelColor }: {
   label: string;
   value: string;
   sub?: string;
   color?: string;
+  labelColor?: string;
 }) {
   return (
     <>
-      <span style={{ color: "var(--text-dim)", fontFamily: "var(--font-mono)", fontSize: 11 }}>
+      <span style={{ color: labelColor ?? "var(--text-dim)", fontFamily: "var(--font-mono)", fontSize: 11 }}>
         {label}
       </span>
       <div style={{ textAlign: "right" }}>
@@ -92,10 +93,12 @@ function CountRow({ label, a, b, colorblind }: {
   colorblind: boolean;
 }) {
   const delta = b - a;
-  const color = signColor(delta, colorblind);
-  const value = delta !== 0 ? `${fmt(a)} → ${fmt(b)}` : fmt(a);
-  const sub = delta !== 0 ? signStr(delta) : undefined;
-  return <Row label={label} value={value} sub={sub} color={delta !== 0 ? color : "var(--text-muted)"} />;
+  const isChanged = delta !== 0;
+  const value = isChanged ? `${fmt(a)} → ${fmt(b)}` : fmt(a);
+  const sub = isChanged ? signStr(delta) : undefined;
+  const labelColor = isChanged ? "var(--text-muted)" : "var(--text-dim)";
+  const valueColor = isChanged ? signColor(delta, colorblind) : "var(--text-dim)";
+  return <Row label={label} value={value} sub={sub} color={valueColor} labelColor={labelColor} />;
 }
 
 // ─── sections ────────────────────────────────────────────────────────────────
