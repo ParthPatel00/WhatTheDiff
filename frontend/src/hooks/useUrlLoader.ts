@@ -72,5 +72,5 @@ export function useUrlLoader() {
 
     if (urlA) load(urlA, "A");
     if (urlB) load(urlB, "B");
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps — params are read once on mount
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 }
