@@ -14,7 +14,7 @@ const ANGLE_LABELS: Record<CameraAngle, string> = {
   [CameraAngle.Left]: "Left",
   [CameraAngle.Right]: "Right",
   [CameraAngle.Top]: "Top",
-  [CameraAngle.ThreeQuarter]: "3/4",
+  [CameraAngle.Bottom]: "Bottom",
 };
 
 // ─── Single cell ────────────────────────────────────────────────────────────

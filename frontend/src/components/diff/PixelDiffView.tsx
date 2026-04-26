@@ -20,7 +20,7 @@ const ANGLE_LABELS: Record<CameraAngle, string> = {
   [CameraAngle.Left]: "Left",
   [CameraAngle.Right]: "Right",
   [CameraAngle.Top]: "Top",
-  [CameraAngle.ThreeQuarter]: "3/4",
+  [CameraAngle.Bottom]: "Bottom",
 };
 
 interface Props {
@@ -131,7 +131,8 @@ export default function PixelDiffView({ initialAngle, onClose }: Props) {
       const preset = CAMERA_PRESETS[angle];
       const target = unionSphere.center;
       cam.position.copy(preset.direction).multiplyScalar(cameraDistance).add(target);
-      cam.up.set(0, angle === CameraAngle.Top ? 0 : 1, angle === CameraAngle.Top ? -1 : 0);
+      const isVertical = angle === CameraAngle.Top || angle === CameraAngle.Bottom;
+      cam.up.set(0, isVertical ? 0 : 1, isVertical ? -1 : 0);
       cam.lookAt(target);
       cam.near = cameraDistance * 0.001;
       cam.far = cameraDistance * 10;
@@ -279,6 +280,15 @@ export default function PixelDiffView({ initialAngle, onClose }: Props) {
           {fileNameA && (
             <span style={{ fontFamily: "var(--font-mono)", fontSize: 12, color: "var(--text)" }}>{fileNameA}</span>
           )}
+          <span style={{
+            fontFamily: "var(--font-mono)", fontSize: 10,
+            color: "var(--text-muted)",
+            background: "var(--bg-elevated)",
+            border: "1px solid var(--border)",
+            borderRadius: 3, padding: "1px 6px",
+          }}>
+            {ANGLE_LABELS[currentAngle]}
+          </span>
         </div>
         <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
           {(livePct !== null || diffResults.length > 0) && (
