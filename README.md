@@ -2,11 +2,37 @@
 
 **Repo:** https://github.com/ParthPatel00/WhatTheDiff
 
-Drag-drop two 3D model files and instantly see what changed — visually and structurally. No 3D software needed. Built for game and design teams.
+Drag-drop two 3D model files and instantly see what changed, visually and structurally. No 3D software needed. Built for game and design teams.
 
-Native macOS desktop app. Supports `.glb` files. Runs entirely on-device — no server, no auth, no uploads.
+Native macOS desktop app. Supports `.glb` files. Runs entirely on-device, no server, no auth, no uploads.
 
 Built at SJHacks 2026.
+
+![Pixel Diff view with GitHub integration](screenshots/pixel-diff.png)
+
+---
+
+## View Modes
+
+### Side by Side
+
+Compare before and after models with synced cameras and structural stats.
+
+![Side by Side view](screenshots/side-by-side.png)
+
+### Ghost Overlay
+
+Blend both models into a single viewport. Toggle between A only, B only, or a blended view to spot differences.
+
+| A only (red) | B only (green) | Blended |
+|:---:|:---:|:---:|
+| ![Ghost A](screenshots/ghost-overlay-a.png) | ![Ghost B](screenshots/ghost-overlay-b.png) | ![Ghost merged](screenshots/ghost-overlay-merged.png) |
+
+### All Angles
+
+Automated 6-angle comparison with per-angle diff percentages.
+
+![All Angles view](screenshots/all-angles.png)
 
 ---
 
